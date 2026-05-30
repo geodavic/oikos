@@ -60,9 +60,10 @@ router.get('/', (req, res) => {
     result.upcomingEvents = [];
   }
 
-  // Offene Aufgaben: in JS sortiert damit due_time korrekt gegen lokale Zeit geprüft wird
+  // Offene Aufgaben pro Nutzer: in JS sortiert damit due_time korrekt gegen lokale Zeit geprüft wird
   try {
-    const allOpen = d.prepare(`
+    const allUsers = d.prepare('SELECT id, display_name, avatar_color FROM users ORDER BY display_name').all();
+    const allOpen  = d.prepare(`
       SELECT t.*, u.display_name AS assigned_name, u.avatar_color AS assigned_color
       FROM tasks t
       LEFT JOIN users u ON t.assigned_to = u.id
@@ -79,23 +80,30 @@ router.get('/', (req, res) => {
         : new Date(`${task.due_date}T23:59:59`);
     }
 
-    allOpen.sort((a, b) => {
-      const aDate  = effectiveDue(a);
-      const bDate  = effectiveDue(b);
-      const aOver  = aDate && aDate < now ? 1 : 0;
-      const bOver  = bDate && bDate < now ? 1 : 0;
-      if (bOver !== aOver) return bOver - aOver;
-      if (!aDate && !bDate) return (PRIO[a.priority] ?? 4) - (PRIO[b.priority] ?? 4);
-      if (!aDate) return 1;
-      if (!bDate) return -1;
-      if (aDate.getTime() !== bDate.getTime()) return aDate < bDate ? -1 : 1;
-      return (PRIO[a.priority] ?? 4) - (PRIO[b.priority] ?? 4);
-    });
+    function sortTasks(tasks) {
+      return [...tasks].sort((a, b) => {
+        const aDate  = effectiveDue(a);
+        const bDate  = effectiveDue(b);
+        const aOver  = aDate && aDate < now ? 1 : 0;
+        const bOver  = bDate && bDate < now ? 1 : 0;
+        if (bOver !== aOver) return bOver - aOver;
+        if (!aDate && !bDate) return (PRIO[a.priority] ?? 4) - (PRIO[b.priority] ?? 4);
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+        if (aDate.getTime() !== bDate.getTime()) return aDate < bDate ? -1 : 1;
+        return (PRIO[a.priority] ?? 4) - (PRIO[b.priority] ?? 4);
+      });
+    }
 
-    result.urgentTasks = allOpen.slice(0, 5);
+    result.tasksByUser = allUsers.map((user) => ({
+      userId:      user.id,
+      displayName: user.display_name,
+      avatarColor: user.avatar_color,
+      tasks:       sortTasks(allOpen.filter((t) => t.assigned_to === user.id)).slice(0, 5),
+    }));
   } catch (err) {
-    log.error('urgentTasks error:', err.message);
-    result.urgentTasks = [];
+    log.error('tasksByUser error:', err.message);
+    result.tasksByUser = [];
   }
 
   // Heutiges Essen (gefiltert nach haushaltweiten Mahlzeit-Typ-Einstellungen)

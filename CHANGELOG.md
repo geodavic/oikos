@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.55.2] - 2026-05-30
-
-### Fixed
-- **Mobile screenshots no longer have a gray bar at the bottom:** The screenshot script now uses a proportionally larger viewport (459×993) instead of CSS `zoom: 0.85` on the root element. CSS zoom shrinks content below the viewport height, leaving an empty gray strip; the larger viewport lets the app fill the frame naturally while still showing the equivalent of 85%-zoomed content.
-
-## [0.55.1] - 2026-05-30
-
-### Fixed
-- **Kitchen pages no longer drift under the tab bar while scrolling:** The meal planner and recipes pages did not subtract the kitchen tab bar height from their viewport height, so the outer scroll container overflowed by exactly the tab bar height. On desktop this made the whole page (week navigation and the day header row, e.g. "MO") drift upward while scrolling instead of only the inner content. Both pages now reduce their height by the tab bar height, matching the shopping page, so only the inner grid scrolls and the day headers stick correctly.
-
 ## [0.55.0] - 2026-05-29
 
 ### Added

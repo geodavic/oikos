@@ -587,6 +587,7 @@ export async function render(container, { user }) {
                   ${user?.role === 'admin' ? `<a href="/api/v1/calendar/google/auth" class="btn btn--primary">${t('settings.connectGoogle')}</a>` : `<span class="form-hint">${t('settings.googleOnlyAdmin')}</span>`}
                 `}
               </div>
+              ${googleStatus.connected ? `<div id="google-calendars-section"></div>` : ''}
             ` : ''}
           </div>
 
@@ -894,7 +895,10 @@ docker cp oikos:/data/oikos-backup.db ./oikos-backup.db</code></pre>
     });
   }
 
-  // Initial Load: CalDAV & CardDAV Accounts
+  // Initial Load: Google Calendars, CalDAV & CardDAV Accounts
+  if (container.querySelector('#google-calendars-section')) {
+    loadGoogleCalendars(container, user);
+  }
   if (container.querySelector('#caldav-accounts-list')) {
     loadCalDAVAccounts(container, user);
   }
@@ -906,6 +910,80 @@ docker cp oikos:/data/oikos-backup.db ./oikos-backup.db</code></pre>
   bindEvents(container, user, users, categories, icsSubscriptions, apiTokens, thirdPartyModules);
   if (window.lucide) window.lucide.createIcons();
 }
+async function loadGoogleCalendars(container, user) {
+  const sectionEl = container.querySelector('#google-calendars-section');
+  if (!sectionEl) return;
+
+  try {
+    const res = await api.get('/calendar/google/calendars');
+    const calendars = res.data || [];
+
+    if (calendars.length === 0) { sectionEl.innerHTML = ''; return; }
+
+    sectionEl.innerHTML = `
+      <details class="caldav-calendars-details">
+        <summary class="caldav-calendars-summary">
+          ${t('settings.googleCalendarsToggle')} (${calendars.length})
+        </summary>
+        <div class="caldav-calendars-list">
+          ${calendars.map((cal) => `
+            <label class="caldav-calendar-item">
+              <input type="checkbox" class="google-calendar-checkbox"
+                     data-calendar-id="${esc(cal.id)}"
+                     ${cal.enabled ? 'checked' : ''}>
+              <span class="caldav-calendar-color" style="background-color: ${esc(cal.color || '#4285F4')}"></span>
+              <span class="caldav-calendar-name">${esc(cal.name)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </details>
+      ${user?.role === 'admin' ? `
+        <div class="caldav-account-actions">
+          <button class="btn btn--secondary btn--sm" id="google-refresh-calendars-btn">${t('settings.googleRefreshCalendars')}</button>
+        </div>
+      ` : ''}
+    `;
+
+    sectionEl.querySelectorAll('.google-calendar-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', async () => {
+        const allCheckboxes = [...sectionEl.querySelectorAll('.google-calendar-checkbox')];
+        const enabledIds = allCheckboxes.filter((c) => c.checked).map((c) => c.dataset.calendarId);
+        try {
+          await api.patch('/calendar/google/calendars', { ids: enabledIds });
+          window.oikos?.showToast(
+            checkbox.checked ? t('settings.calendarEnabled') : t('settings.calendarDisabled'),
+            'success',
+          );
+        } catch (err) {
+          window.oikos?.showToast(err.message, 'danger');
+          checkbox.checked = !checkbox.checked;
+        }
+      });
+    });
+
+    const refreshBtn = sectionEl.querySelector('#google-refresh-calendars-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.disabled = true;
+        const original = refreshBtn.textContent;
+        refreshBtn.textContent = t('settings.loading');
+        try {
+          await api.get('/calendar/google/calendars?refresh=true');
+          await loadGoogleCalendars(container, user);
+          window.oikos?.showToast(t('settings.calendarsRefreshed'), 'success');
+        } catch (err) {
+          window.oikos?.showToast(err.message, 'danger');
+        } finally {
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = original;
+        }
+      });
+    }
+  } catch {
+    sectionEl.innerHTML = '';
+  }
+}
+
 // CalDAV-Konten laden
 async function loadCalDAVAccounts(container, user) {
   const listEl = container.querySelector('#caldav-accounts-list');

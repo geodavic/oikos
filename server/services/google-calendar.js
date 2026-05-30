@@ -141,6 +141,15 @@ async function handleCallback(code) {
   if (tokens.expiry_date) cfgSet('google_token_expiry', String(tokens.expiry_date));
 
   log.info('OAuth successful - tokens saved.');
+
+  try {
+    await fetchCalendars();
+    if (!cfgGet('google_enabled_calendars')) {
+      cfgSet('google_enabled_calendars', JSON.stringify(['primary']));
+    }
+  } catch (err) {
+    log.warn('Could not fetch calendar list after OAuth:', err.message);
+  }
 }
 
 /**
@@ -159,103 +168,159 @@ function getStatus() {
  */
 function disconnect() {
   ['google_access_token', 'google_refresh_token', 'google_token_expiry',
-   'google_sync_token', 'google_last_sync'].forEach(cfgDel);
+   'google_last_sync', 'google_enabled_calendars'].forEach(cfgDel);
+  db.get().prepare("DELETE FROM sync_config WHERE key LIKE 'google_sync_token%'").run();
   log.info('Disconnected.');
 }
 
 /**
- * Bidirektionaler Sync.
+ * Ruft die Kalender-Liste von Google ab und speichert sie in external_calendars.
+ * @returns {Array<{id, name, color, primary}>}
+ */
+async function fetchCalendars() {
+  const client = loadAuthorizedClient();
+  const calendar = google.calendar({ version: 'v3', auth: client });
+  const res = await calendar.calendarList.list({ minAccessRole: 'reader' });
+  const items = res.data.items || [];
+  for (const cal of items) {
+    upsertExternalCalendar('google', cal.id, cal.summary || cal.id, cal.backgroundColor || GOOGLE_COLOR);
+  }
+  return items.map(cal => ({
+    id: cal.id,
+    name: cal.summary || cal.id,
+    color: cal.backgroundColor || GOOGLE_COLOR,
+    primary: !!cal.primary,
+  }));
+}
+
+/**
+ * Gibt die gespeicherten Google-Kalender mit enabled-Flag zurück.
+ * @returns {Array<{id, name, color, enabled}>}
+ */
+function getCalendars() {
+  const enabledIds = getEnabledCalendarIds();
+  const rows = db.get().prepare("SELECT * FROM external_calendars WHERE source = 'google' ORDER BY name").all();
+  return rows.map(row => ({
+    id: row.external_id,
+    name: row.name,
+    color: row.color || GOOGLE_COLOR,
+    enabled: enabledIds.includes(row.external_id),
+  }));
+}
+
+/**
+ * Aktualisiert, welche Google-Kalender synchronisiert werden.
+ * @param {string[]} ids - Array von Kalender-IDs
+ */
+function setEnabledCalendars(ids) {
+  cfgSet('google_enabled_calendars', JSON.stringify(ids));
+}
+
+function getEnabledCalendarIds() {
+  const raw = cfgGet('google_enabled_calendars');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  return ['primary'];
+}
+
+/**
+ * Bidirektionaler Sync über alle aktivierten Google-Kalender.
  * Inbound:  Google → lokale DB (Upsert via external_calendar_id)
- * Outbound: lokale Termine (external_source='local', external_calendar_id IS NULL) → Google
+ * Outbound: lokale Termine (external_source='local', external_calendar_id IS NULL) → primary
  */
 async function sync() {
-  const client  = loadAuthorizedClient();
+  const client   = loadAuthorizedClient();
   const calendar = google.calendar({ version: 'v3', auth: client });
 
-  // Kalender-Metadaten holen und in external_calendars upserten
-  let calRefId = null;
-  let calColor = GOOGLE_COLOR;
-  try {
-    const meta = await calendar.calendarList.get({ calendarId: 'primary' });
-    calColor  = meta.data.backgroundColor || GOOGLE_COLOR;
-    const calName = meta.data.summary || 'Google Calendar';
-    calRefId  = upsertExternalCalendar('google', 'primary', calName, calColor);
-  } catch (err) {
-    log.warn('Calendar metadata is not accessible:', err.message);
+  const enabledIds = getEnabledCalendarIds();
+
+  // --------------------------------------------------------
+  // Inbound: Google → lokal (alle aktivierten Kalender)
+  // --------------------------------------------------------
+  for (const calId of enabledIds) {
+    let calRefId = null;
+    let calColor = GOOGLE_COLOR;
+    try {
+      const meta = await calendar.calendarList.get({ calendarId: calId });
+      calColor = meta.data.backgroundColor || GOOGLE_COLOR;
+      const calName = meta.data.summary || (calId === 'primary' ? 'Google Calendar' : calId);
+      calRefId = upsertExternalCalendar('google', calId, calName, calColor);
+    } catch (err) {
+      log.warn(`Calendar metadata for ${calId} not accessible:`, err.message);
+    }
+
+    const tokenKey = `google_sync_token_${calId}`;
+    // Migration: adopt old single-calendar token for primary
+    let syncToken = cfgGet(tokenKey);
+    if (calId === 'primary' && !syncToken) {
+      const legacy = cfgGet('google_sync_token');
+      if (legacy) { syncToken = legacy; cfgDel('google_sync_token'); }
+    }
+
+    let pageToken = undefined;
+    let newSyncToken = null;
+
+    do {
+      const listParams = { calendarId: calId, singleEvents: true, pageToken };
+      if (syncToken) {
+        listParams.syncToken = syncToken;
+      } else {
+        listParams.timeMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        listParams.timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      let response;
+      try {
+        response = await calendar.events.list(listParams);
+      } catch (err) {
+        if (err.code === 410) {
+          log.warn(`syncToken for ${calId} invalid - full resync.`);
+          cfgDel(tokenKey);
+          syncToken = null;
+          continue;
+        }
+        throw err;
+      }
+
+      upsertGoogleEvents(response.data.items || [], calRefId, calColor);
+      pageToken    = response.data.nextPageToken;
+      newSyncToken = response.data.nextSyncToken || newSyncToken;
+    } while (pageToken);
+
+    if (newSyncToken) cfgSet(tokenKey, newSyncToken);
   }
 
   // --------------------------------------------------------
-  // Inbound: Google → lokal
+  // Outbound: lokal → Google (primary, oder erster aktivierter Kalender)
   // --------------------------------------------------------
-  let syncToken = cfgGet('google_sync_token');
-  let pageToken = undefined;
-  let newSyncToken = null;
+  const outboundCalId = enabledIds.includes('primary') ? 'primary' : enabledIds[0];
+  if (outboundCalId) {
+    const localEvents = db.get().prepare(`
+      SELECT * FROM calendar_events
+      WHERE external_source = 'local' AND external_calendar_id IS NULL
+    `).all();
 
-  do {
-    let listParams = {
-      calendarId:    'primary',
-      singleEvents:  true,
-      pageToken,
-    };
-
-    if (syncToken) {
-      listParams.syncToken = syncToken;
-    } else {
-      // Erstsync: letzte 3 Monate + nächste 12 Monate
-      const timeMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-      const timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      listParams.timeMin = timeMin;
-      listParams.timeMax = timeMax;
-    }
-
-    let response;
-    try {
-      response = await calendar.events.list(listParams);
-    } catch (err) {
-      if (err.code === 410) {
-        // syncToken abgelaufen → vollständiger Resync
-        log.warn('syncToken invalid - full resync.');
-        cfgDel('google_sync_token');
-        syncToken = null;
-        continue;
+    for (const event of localEvents) {
+      try {
+        const created = await calendar.events.insert({
+          calendarId:  outboundCalId,
+          requestBody: localEventToGoogle(event),
+        });
+        db.get().prepare(
+          'UPDATE calendar_events SET external_calendar_id = ?, external_source = ? WHERE id = ?'
+        ).run(created.data.id, 'google', event.id);
+      } catch (err) {
+        log.error(`Outbound error for event ${event.id}:`, err.message);
       }
-      throw err;
     }
-
-    const items = response.data.items || [];
-    upsertGoogleEvents(items, calRefId, calColor);
-
-    pageToken    = response.data.nextPageToken;
-    newSyncToken = response.data.nextSyncToken || newSyncToken;
-  } while (pageToken);
-
-  if (newSyncToken) cfgSet('google_sync_token', newSyncToken);
-
-  // --------------------------------------------------------
-  // Outbound: lokal → Google
-  // --------------------------------------------------------
-  const localEvents = db.get().prepare(`
-    SELECT * FROM calendar_events
-    WHERE external_source = 'local' AND external_calendar_id IS NULL
-  `).all();
-
-  for (const event of localEvents) {
-    try {
-      const gEvent = localEventToGoogle(event);
-      const created = await calendar.events.insert({
-        calendarId: 'primary',
-        requestBody: gEvent,
-      });
-      db.get().prepare(`
-        UPDATE calendar_events SET external_calendar_id = ?, external_source = 'google' WHERE id = ?
-      `).run(created.data.id, event.id);
-    } catch (err) {
-      log.error(`Outbound error for event ${event.id}:`, err.message);
-    }
+    log.info(`Sync completed - ${localEvents.length} local → Google (${outboundCalId}), inbound: ${enabledIds.join(', ')}.`);
   }
 
   cfgSet('google_last_sync', new Date().toISOString());
-  log.info(`Sync completed - ${localEvents.length} local → Google, inbound via syncToken.`);
 }
 
 // --------------------------------------------------------
@@ -339,4 +404,4 @@ function localEventToGoogle(event) {
   return gEvent;
 }
 
-export { getAuthUrl, handleCallback, getStatus, disconnect, sync };
+export { getAuthUrl, handleCallback, getStatus, disconnect, sync, fetchCalendars, getCalendars, setEnabledCalendars };

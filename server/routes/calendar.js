@@ -449,6 +449,42 @@ router.delete('/google/disconnect', requireAdmin, (req, res) => {
   }
 });
 
+/**
+ * GET /api/v1/calendar/google/calendars
+ * Lists available Google calendars with enabled status.
+ * Query: ?refresh=true — re-fetches list from Google before returning.
+ * Response: { data: Array<{id, name, color, enabled}> }
+ */
+router.get('/google/calendars', requireAdmin, async (req, res) => {
+  try {
+    if (req.query.refresh === 'true') {
+      await googleCalendar.fetchCalendars();
+    }
+    res.json({ data: googleCalendar.getCalendars() });
+  } catch (err) {
+    log.error('', err);
+    res.status(500).json({ error: err.message, code: 500 });
+  }
+});
+
+/**
+ * PATCH /api/v1/calendar/google/calendars
+ * Updates which Google calendars are synced.
+ * Body: { ids: string[] }
+ * Response: { ok: true }
+ */
+router.patch('/google/calendars', requireAdmin, (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array', code: 400 });
+    googleCalendar.setEnabledCalendars(ids);
+    res.json({ ok: true });
+  } catch (err) {
+    log.error('', err);
+    res.status(500).json({ error: err.message, code: 500 });
+  }
+});
+
 // --------------------------------------------------------
 // Apple Calendar Sync-Routen
 // --------------------------------------------------------

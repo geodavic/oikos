@@ -235,6 +235,11 @@
               Create OAuth credentials at <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a>.
               Redirect URI: <code id="gcal-redirect-hint"></code>
             </p>
+            <p class="hint" id="gcal-localhost-note" style="display:none;margin-bottom:12px;color:var(--warning,#b45309)">
+              Your host is an IP address, which Google does not allow as a redirect URI.
+              Using <code>localhost</code> instead — this works when you authorize Google Calendar
+              from a browser on the same machine as your Oikos server.
+            </p>
             <div class="field">
               <label for="gcal-id">Client ID</label>
               <input type="text" id="gcal-id">
@@ -486,16 +491,19 @@ $('wea-next').addEventListener('click', () => {
     S.OPENWEATHER_API_KEY = '';
   }
   showErr('wea-err', '');
+  const gcalHost = /^\d{1,3}(\.\d{1,3}){3}$/.test(S.host) ? 'localhost' : S.host;
   $('gcal-redirect-hint').textContent =
-    `http://${S.host}:${S.port}/api/v1/calendar/google/callback`;
+    `http://${gcalHost}:${S.port}/api/v1/calendar/google/callback`;
+  $('gcal-localhost-note').style.display = gcalHost === 'localhost' && S.host !== 'localhost' ? 'block' : 'none';
   showStep(3);
 });
 
 $('cal-next').addEventListener('click', () => {
   S.GOOGLE_CLIENT_ID = $('gcal-id').value.trim();
   S.GOOGLE_CLIENT_SECRET = $('gcal-secret').value.trim();
+  const _gcalHost = /^\d{1,3}(\.\d{1,3}){3}$/.test(S.host) ? 'localhost' : S.host;
   S.GOOGLE_REDIRECT_URI = S.GOOGLE_CLIENT_ID
-    ? `http://${S.host}:${S.port}/api/v1/calendar/google/callback` : '';
+    ? `http://${_gcalHost}:${S.port}/api/v1/calendar/google/callback` : '';
   S.APPLE_USERNAME = $('apple-user').value.trim();
   S.APPLE_APP_SPECIFIC_PASSWORD = $('apple-pass').value.trim();
 
@@ -513,6 +521,7 @@ $('rev-next').addEventListener('click', async () => {
   const btn = $('rev-next');
   btn.disabled = true; btn.textContent = 'Saving...';
   const env = {
+    PORT: S.port,
     SESSION_SECRET: S.SESSION_SECRET, DB_ENCRYPTION_KEY: S.DB_ENCRYPTION_KEY,
     OPENWEATHER_API_KEY: S.OPENWEATHER_API_KEY, OPENWEATHER_CITY: S.OPENWEATHER_CITY,
     OPENWEATHER_UNITS: S.OPENWEATHER_UNITS, OPENWEATHER_LANG: S.OPENWEATHER_LANG,

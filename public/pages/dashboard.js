@@ -125,6 +125,8 @@ function showOnboarding(appContainer) {
 // NEU — primäre Inhalte (tasks, calendar) ganz oben
 const WIDGET_IDS = ['tasks', 'calendar', 'weather', 'meals', 'shopping', 'birthdays', 'budget', 'family', 'notes'];
 
+function isUserTaskId(id) { return /^tasks_u\d+$/.test(id); }
+
 const WIDGET_SIZE_PRESETS = [
   { value: '1x1', labelKey: 'dashboard.widgetSizeTiny'     },
   { value: '2x1', labelKey: 'dashboard.widgetSizeNarrow'   },
@@ -145,18 +147,23 @@ function widgetSizeLabel(size) {
 }
 
 function defaultWidgetSize(id) {
-  if (['tasks', 'calendar'].includes(id)) return '2x2';
-  if (['weather', 'shopping'].includes(id)) return '2x1';
-  if (id === 'notes') return '2x1';
+  if (id === 'tasks' || id === 'calendar' || isUserTaskId(id)) return '2x2';
+  if (id === 'weather' || id === 'shopping' || id === 'notes') return '2x1';
   return '1x1';
 }
 
 const DEFAULT_WIDGET_CONFIG = WIDGET_IDS.map((id, i) => ({ id, visible: true, order: i, size: defaultWidgetSize(id) }));
 
-function normalizeDashboardConfig(input) {
+function normalizeDashboardConfig(input, tasksByUser = []) {
+  const validUserIds = new Set(tasksByUser.map((u) => String(u.userId)));
+
   const valid = Array.isArray(input)
     ? input
-      .filter((w) => w && typeof w === 'object' && WIDGET_IDS.includes(w.id))
+      .filter((w) => {
+        if (!w || typeof w !== 'object') return false;
+        if (isUserTaskId(w.id)) return tasksByUser.length > 0 && validUserIds.has(w.id.slice('tasks_u'.length));
+        return WIDGET_IDS.includes(w.id) && w.id !== 'tasks';
+      })
       .map((w, i) => ({
         id: w.id,
         visible: w.visible !== false,
@@ -164,12 +171,40 @@ function normalizeDashboardConfig(input) {
         size: WIDGET_SIZE_OPTIONS.includes(w.size) ? w.size : defaultWidgetSize(w.id),
       }))
     : [];
+
   const presentIds = new Set(valid.map((w) => w.id));
+
+  // Add missing non-task widgets
   for (const id of WIDGET_IDS) {
+    if (id === 'tasks') continue;
     if (!presentIds.has(id)) {
       valid.push({ id, visible: true, order: valid.length, size: defaultWidgetSize(id) });
     }
   }
+
+  if (tasksByUser.length > 0) {
+    // Find insertion point: where 'tasks' or the first tasks_u* entry was in the original input
+    const firstTaskOrder = Array.isArray(input)
+      ? (() => {
+          const entry = input.find((w) => w?.id === 'tasks' || isUserTaskId(w?.id));
+          return entry ? (Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0) : 0;
+        })()
+      : 0;
+
+    // Add missing per-user task tiles
+    let nextOrder = firstTaskOrder;
+    for (const u of tasksByUser) {
+      const uid = `tasks_u${u.userId}`;
+      if (!presentIds.has(uid)) {
+        valid.push({ id: uid, visible: true, order: nextOrder - 0.5, size: '2x2' });
+      }
+      nextOrder++;
+    }
+  } else if (!presentIds.has('tasks')) {
+    // Fallback: keep legacy tasks widget when no user data
+    valid.push({ id: 'tasks', visible: true, order: 0, size: '2x2' });
+  }
+
   return valid
     .sort((a, b) => a.order - b.order)
     .map((w, i) => ({ ...w, order: i }));
@@ -180,7 +215,12 @@ function setHtml(element, html) {
   element.insertAdjacentHTML('afterbegin', html);
 }
 
-function widgetLabel(id) {
+function widgetLabel(id, tasksByUser = []) {
+  if (isUserTaskId(id)) {
+    const userId = parseInt(id.slice('tasks_u'.length), 10);
+    const u = tasksByUser.find((u) => u.userId === userId);
+    return u ? u.displayName : t('nav.tasks');
+  }
   const map = {
     tasks:    () => t('nav.tasks'),
     calendar: () => t('nav.calendar'),
@@ -196,6 +236,7 @@ function widgetLabel(id) {
 }
 
 function widgetIcon(id) {
+  if (isUserTaskId(id)) return 'check-square';
   const map = { tasks: 'check-square', calendar: 'calendar', birthdays: 'cake', budget: 'wallet', family: 'users', shopping: 'shopping-cart', meals: 'utensils', notes: 'pin', weather: 'cloud-sun' };
   return map[id] ?? 'layout-dashboard';
 }
@@ -429,6 +470,35 @@ function renderUrgentTasks(tasks) {
 
   return `<div class="widget widget--tasks">
     ${widgetHeader('check-square', t('nav.tasks'), tasks.length, '/tasks')}
+    <div class="widget__body">${items}</div>
+  </div>`;
+}
+
+function renderUserTasks(userInfo, tasks) {
+  const header = widgetHeader('check-square', userInfo.displayName, tasks.length, '/tasks');
+  if (!tasks.length) {
+    return `<div class="widget widget--tasks">
+      ${header}
+      <div class="widget__empty">
+        <i data-lucide="check-circle" class="empty-state__icon" style="color:var(--color-success)" aria-hidden="true"></i>
+        <div>${t('dashboard.allDone')}</div>
+      </div>
+    </div>`;
+  }
+  const items = tasks.map((task) => {
+    const due = formatDueDate(task.due_date, task.due_time);
+    return `
+      <div class="task-item" data-task-id="${task.id}" data-task-title="${esc(task.title)}" role="button" tabindex="0">
+        ${task.priority !== 'none' ? `<div class="task-item__priority task-item__priority--${task.priority}" aria-hidden="true"></div>` : ''}
+        <span class="sr-only">${PRIORITY_LABELS()[task.priority] ?? task.priority}</span>
+        <div class="task-item__content">
+          <div class="task-item__title">${esc(task.title)}</div>
+          ${due ? `<div class="task-item__meta ${due.overdue ? 'task-item__meta--overdue' : ''} ${due.soon ? 'task-item__meta--soon' : ''}">${due.text}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="widget widget--tasks">
+    ${header}
     <div class="widget__body">${items}</div>
   </div>`;
 }
@@ -714,10 +784,11 @@ function renderSizeMiniGridCells(size) {
   }).join('');
 }
 
-function renderWidgetCustomizeControls(w) {
+function renderWidgetCustomizeControls(w, tasksByUser = []) {
   const sizeOptions = WIDGET_SIZE_PRESETS.map(({ value: size }) => `
     <option value="${size}" ${w.size === size ? 'selected' : ''}>${widgetSizeLabel(size)}</option>
   `).join('');
+  const label = widgetLabel(w.id, tasksByUser);
 
   return `
     <div class="widget-edit-controls" data-widget-controls>
@@ -727,11 +798,11 @@ function renderWidgetCustomizeControls(w) {
       <label class="widget-edit-controls__size">
         <span>${t('dashboard.customizeSize')}</span>
         ${renderSizeMiniGrid(w.size)}
-        <select class="widget-edit-controls__select" data-widget-size="${esc(w.id)}" aria-label="${t('dashboard.customizeSizeFor', { widget: widgetLabel(w.id) })}">
+        <select class="widget-edit-controls__select" data-widget-size="${esc(w.id)}" aria-label="${t('dashboard.customizeSizeFor', { widget: label })}">
           ${sizeOptions}
         </select>
       </label>
-      <button type="button" class="widget-edit-controls__hide" data-widget-hide="${esc(w.id)}" aria-label="${t('dashboard.customizeHide', { widget: widgetLabel(w.id) })}">
+      <button type="button" class="widget-edit-controls__hide" data-widget-hide="${esc(w.id)}" aria-label="${t('dashboard.customizeHide', { widget: label })}">
         <i data-lucide="eye-off" aria-hidden="true"></i>
       </button>
     </div>
@@ -739,6 +810,8 @@ function renderWidgetCustomizeControls(w) {
 }
 
 function renderDashboardLayout(cfg, data, weather, currency, { editing = false } = {}) {
+  const tasksByUser = data.tasksByUser ?? [];
+
   const widgetById = {
     tasks: () => renderUrgentTasks(data.urgentTasks ?? []),
     calendar: () => renderUpcomingEvents(data.upcomingEvents ?? []),
@@ -752,13 +825,20 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false }
   };
 
   const tiles = cfg
-    .filter((w) => w.visible && widgetById[w.id])
+    .filter((w) => w.visible && (widgetById[w.id] || isUserTaskId(w.id)))
     .map((w) => {
-      const html = widgetById[w.id]();
+      let html;
+      if (isUserTaskId(w.id)) {
+        const userId = parseInt(w.id.slice('tasks_u'.length), 10);
+        const userInfo = tasksByUser.find((u) => u.userId === userId);
+        html = userInfo ? renderUserTasks(userInfo, userInfo.tasks) : '';
+      } else {
+        html = widgetById[w.id]?.();
+      }
       if (!html) return '';
       return `<div class="widget-wrapper ${widgetSizeClass(w.size)} ${editing ? 'widget-wrapper--editing' : ''}"
                    data-widget-id="${esc(w.id)}" ${editing ? 'draggable="true"' : ''}>
-        ${editing ? renderWidgetCustomizeControls(w) : ''}
+        ${editing ? renderWidgetCustomizeControls(w, tasksByUser) : ''}
         ${html}
       </div>`;
     })
@@ -970,13 +1050,14 @@ function initFab(container, signal) {
 // Customize-Modal
 // --------------------------------------------------------
 
-function openCustomizeModal(currentConfig, onSave) {
+function openCustomizeModal(currentConfig, onSave, tasksByUser = []) {
   let draft = currentConfig.map((w) => ({ ...w }));
 
   function buildRows() {
     return draft.map((w, i) => {
       const isFirst = i === 0;
       const isLast  = i === draft.length - 1;
+      const label = widgetLabel(w.id, tasksByUser);
       const sizeOptions = WIDGET_SIZE_OPTIONS.map((size) => `
         <option value="${size}" ${w.size === size ? 'selected' : ''}>${widgetSizeLabel(size)}</option>
       `).join('');
@@ -984,15 +1065,15 @@ function openCustomizeModal(currentConfig, onSave) {
         <div class="customize-row" data-id="${esc(w.id)}" style="view-transition-name: widget-row-${esc(w.id)}">
           <label class="customize-row__toggle">
             <input type="checkbox" class="customize-row__check" data-id="${w.id}"
-                   ${w.visible ? 'checked' : ''} aria-label="${widgetLabel(w.id)}">
+                   ${w.visible ? 'checked' : ''} aria-label="${label}">
             <span class="customize-row__slider" aria-hidden="true"></span>
           </label>
           <i data-lucide="${widgetIcon(w.id)}" class="customize-row__icon" aria-hidden="true"></i>
-          <span class="customize-row__name">${widgetLabel(w.id)}</span>
+          <span class="customize-row__name">${label}</span>
           <label class="customize-row__size">
             <span>${t('dashboard.customizeSize')}</span>
             ${renderSizeMiniGrid(w.size)}
-            <select class="form-input customize-row__select" data-size-id="${esc(w.id)}" aria-label="${t('dashboard.customizeSizeFor', { widget: widgetLabel(w.id) })}">
+            <select class="form-input customize-row__select" data-size-id="${esc(w.id)}" aria-label="${t('dashboard.customizeSizeFor', { widget: label })}">
               ${sizeOptions}
             </select>
           </label>
@@ -1110,7 +1191,7 @@ function openCustomizeModal(currentConfig, onSave) {
       wireRows();
 
       panel.querySelector('#customize-reset')?.addEventListener('click', () => {
-        draft = DEFAULT_WIDGET_CONFIG.map((w) => ({ ...w }));
+        draft = normalizeDashboardConfig(DEFAULT_WIDGET_CONFIG, tasksByUser);
         rebuildList();
       });
 
@@ -1265,7 +1346,7 @@ export async function render(container, { user }) {
     ${renderFab()}
   `);
 
-  let data         = { upcomingEvents: [], urgentTasks: [], todayMeals: [], pinnedNotes: [], shoppingLists: [], birthdays: [], users: [], budget: {} };
+  let data         = { upcomingEvents: [], tasksByUser: [], todayMeals: [], pinnedNotes: [], shoppingLists: [], birthdays: [], users: [], budget: {} };
   let weather      = null;
   let widgetConfig = DEFAULT_WIDGET_CONFIG;
   let savedWidgetConfig = DEFAULT_WIDGET_CONFIG;
@@ -1279,7 +1360,7 @@ export async function render(container, { user }) {
     ]);
     data         = dashRes;
     weather      = weatherRes.data ?? null;
-    widgetConfig = normalizeDashboardConfig(prefsRes.data?.dashboard_widgets ?? DEFAULT_WIDGET_CONFIG);
+    widgetConfig = normalizeDashboardConfig(prefsRes.data?.dashboard_widgets ?? DEFAULT_WIDGET_CONFIG, data.tasksByUser);
     savedWidgetConfig = widgetConfig.map((w) => ({ ...w }));
     currency     = prefsRes.data?.currency ?? 'EUR';
   } catch (err) {
@@ -1308,7 +1389,7 @@ export async function render(container, { user }) {
   }
 
   function resetDashboardConfig() {
-    widgetConfig = DEFAULT_WIDGET_CONFIG.map((w) => ({ ...w }));
+    widgetConfig = normalizeDashboardConfig(DEFAULT_WIDGET_CONFIG, data.tasksByUser);
     rebuildDashboard(widgetConfig);
   }
 
@@ -1413,11 +1494,11 @@ export async function render(container, { user }) {
     }, { signal: _fabController.signal });
     container.querySelector('#dashboard-manage-widgets')?.addEventListener('click', () => {
       openCustomizeModal(widgetConfig, (newConfig) => {
-        widgetConfig = normalizeDashboardConfig(newConfig);
+        widgetConfig = normalizeDashboardConfig(newConfig, data.tasksByUser);
         savedWidgetConfig = widgetConfig.map((w) => ({ ...w }));
         isCustomizing = false;
         rebuildDashboard(widgetConfig);
-      });
+      }, data.tasksByUser);
     }, { signal: _fabController.signal });
     container.querySelector('#dashboard-customize-save')?.addEventListener('click', saveDashboardConfig, { signal: _fabController.signal });
     container.querySelector('#dashboard-customize-cancel')?.addEventListener('click', cancelDashboardConfig, { signal: _fabController.signal });

@@ -16,18 +16,18 @@
   <tr>
     <td align="center" width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark-mobile.png">
-        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/dashboard-light-mobile.png">
-        <img src="docs/screenshots/dashboard-light-mobile.png" alt="Mobile Dashboard" width="280">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/01-mobile-dark.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/01-mobile-light.png">
+        <img src="docs/screenshots/01-mobile-light.png" alt="Mobile Dashboard" width="280">
       </picture>
       <br>
       <sub>Mobile Dashboard</sub>
     </td>
     <td align="center" width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark-desktop.png">
-        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/dashboard-light-desktop.png">
-        <img src="docs/screenshots/dashboard-light-desktop.png" alt="Desktop Dashboard" width="480">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/01-web-dark.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/01-web-light.png">
+        <img src="docs/screenshots/01-web-light.png" alt="Desktop Dashboard" width="480">
       </picture>
       <br>
       <sub>Desktop Dashboard</sub>

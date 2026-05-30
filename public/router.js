@@ -296,9 +296,7 @@ async function navigate(path, userOrPushState = true, pushState = true) {
       currentUser = userOrPushState;
       await syncPreferencesOnce();
       startThirdPartyModulePolling();
-      // currentUser kann während des await oben auf null gesetzt worden sein
-      // (auth:expired bei 401 von /preferences), daher Guard gegen null.
-      if (currentUser && currentUser.access_scope !== 'split_guest') {
+      if (currentUser.access_scope !== 'split_guest') {
         loadReminderStyles();
         initReminders();
       }
@@ -335,9 +333,7 @@ async function navigate(path, userOrPushState = true, pushState = true) {
         currentUser = result.user;
         await syncPreferencesOnce();
         startThirdPartyModulePolling();
-        // currentUser kann während des await oben auf null gesetzt worden sein
-        // (auth:expired bei 401 von /preferences), daher Guard gegen null.
-        if (currentUser && currentUser.access_scope !== 'split_guest') {
+        if (currentUser.access_scope !== 'split_guest') {
           loadReminderStyles();
           initReminders();
         }

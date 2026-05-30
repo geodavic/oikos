@@ -1051,6 +1051,8 @@
     "caldavPasswordHint": "For iCloud: Use app-specific password from appleid.apple.com",
     "caldavAccountAdded": "CalDAV account added successfully",
     "caldavAccountDeleted": "CalDAV account removed",
+    "googleCalendarsToggle": "Show/hide calendars",
+    "googleRefreshCalendars": "Refresh calendars",
     "caldavCalendarsToggle": "Show/hide calendars",
     "caldavRefreshCalendars": "Refresh calendars",
     "caldavSyncSuccess": "CalDAV sync successful",
