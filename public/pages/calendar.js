@@ -41,23 +41,25 @@ const MONTH_NAMES     = () => [
   t('calendar.monthOctober'), t('calendar.monthNovember'), t('calendar.monthDecember'),
 ];
 
+// Skylight-style soft pastel palette. High luminance → events render with
+// a soft fill and dark text (via getContrastColor), the Skylight calendar look.
 const EVENT_COLORS = [
-  '#007AFF', '#34C759', '#FF9500', '#FF3B30',
-  '#AF52DE', '#FF6B35', '#5AC8FA', '#FFCC00',
-  '#8E8E93', '#30B0C7',
+  '#E5DCFB', '#D6E6F7', '#CFE9D9', '#FBEFC6',
+  '#FBE2C8', '#F8CECA', '#FBD8CB', '#DCEEFB',
+  '#CFEAE7', '#E3E5E9',
 ];
 
 const EVENT_COLOR_NAMES = () => ({
-  '#007AFF': t('calendar.colorBlue'),
-  '#34C759': t('calendar.colorGreen'),
-  '#FF9500': t('calendar.colorOrange'),
-  '#FF3B30': t('calendar.colorRed'),
-  '#AF52DE': t('calendar.colorPurple'),
-  '#FF6B35': t('calendar.colorCoral'),
-  '#5AC8FA': t('calendar.colorSkyBlue'),
-  '#FFCC00': t('calendar.colorYellow'),
-  '#8E8E93': t('calendar.colorGray'),
-  '#30B0C7': t('calendar.colorCyan'),
+  '#E5DCFB': t('calendar.colorPurple'),
+  '#D6E6F7': t('calendar.colorBlue'),
+  '#CFE9D9': t('calendar.colorGreen'),
+  '#FBEFC6': t('calendar.colorYellow'),
+  '#FBE2C8': t('calendar.colorOrange'),
+  '#F8CECA': t('calendar.colorRed'),
+  '#FBD8CB': t('calendar.colorCoral'),
+  '#DCEEFB': t('calendar.colorSkyBlue'),
+  '#CFEAE7': t('calendar.colorCyan'),
+  '#E3E5E9': t('calendar.colorGray'),
 });
 
 const EVENT_ICON_ALIASES = {

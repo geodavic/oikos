@@ -398,7 +398,10 @@ function localEventToGoogle(event) {
   }
 
   if (event.recurrence_rule) {
-    gEvent.recurrence = [event.recurrence_rule];
+    const rule = event.recurrence_rule.startsWith('RRULE:')
+      ? event.recurrence_rule
+      : `RRULE:${event.recurrence_rule}`;
+    gEvent.recurrence = [rule];
   }
 
   return gEvent;

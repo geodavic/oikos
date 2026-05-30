@@ -49,35 +49,36 @@
 :root {
   /* --------------------------------------------------------
    * 1. Farben - Neutral-Skala
-   *    Leicht warmgetönt (kein reines Grau) für einladende Atmosphäre.
+   *    Skylight-inspiriert: kühl-neutrale, klare Weißtöne (kein
+   *    Warmstich) für eine luftige, moderne Kalender-Atmosphäre.
    *    Private --_neutral-* für Dark-Mode-Überschreibungen;
    *    öffentliche --neutral-* sind die stabile API.
    * -------------------------------------------------------- */
-  --_neutral-50:  #FAFAF8;
+  --_neutral-50:  #FAFBFC;
   --neutral-50:   var(--_neutral-50);
-  --_neutral-100: #F5F4F1;
+  --_neutral-100: #F4F6F8;
   --neutral-100:  var(--_neutral-100);
-  --_neutral-150: #EFEEE9;
+  --_neutral-150: #EEF1F4;
   --neutral-150:  var(--_neutral-150);
-  --_neutral-200: #E8E7E2;
+  --_neutral-200: #E5E9ED;
   --neutral-200:  var(--_neutral-200);
-  --_neutral-250: #DDDCD7;
+  --_neutral-250: #DADFE5;
   --neutral-250:  var(--_neutral-250);
-  --_neutral-300: #D1D0CB;
+  --_neutral-300: #CDD3DA;
   --neutral-300:  var(--_neutral-300);
-  --_neutral-400: #B5B4AF;
+  --_neutral-400: #B0B7C0;
   --neutral-400:  var(--_neutral-400);
-  --_neutral-500: #8E8D89;
+  --_neutral-500: #888F99;
   --neutral-500:  var(--_neutral-500);
-  --_neutral-600: #6C6B67;
+  --_neutral-600: #646B75;
   --neutral-600:  var(--_neutral-600);
-  --_neutral-700: #4A4A46;
+  --_neutral-700: #474C54;
   --neutral-700:  var(--_neutral-700);
-  --_neutral-800: #2E2E2B;
+  --_neutral-800: #2C3036;
   --neutral-800:  var(--_neutral-800);
-  --_neutral-900: #1C1C1A;
+  --_neutral-900: #191C20;
   --neutral-900:  var(--_neutral-900);
-  --_neutral-950: #121211;
+  --_neutral-950: #111316;
   --neutral-950:  var(--_neutral-950);
 
   /* Semantische Aliase (abwärtskompatibel) */
@@ -86,14 +87,14 @@
   --color-surface:        var(--_color-surface);
   /* surface-2: recessed/vertieft (dunkler als bg in dark mode — kein Elevations-Token) */
   --color-surface-2:      var(--neutral-50);
-  --_color-surface-3:     var(--_neutral-150);
+  --_color-surface-3:     #EEF1F4;
   --color-surface-3:      var(--_color-surface-3);
   --color-border:         var(--neutral-200);
   --color-border-subtle:  var(--neutral-150);
   --color-text-primary:   var(--neutral-900);
   --color-text-secondary: var(--neutral-600);  /* WCAG AA: ~5.0:1 auf weiß */
-  --_color-text-tertiary: #6A6964;
-  --color-text-tertiary:  var(--_color-text-tertiary);  /* WCAG AA: 4.61:1 auf --color-bg */
+  --_color-text-tertiary: #666C74;
+  --color-text-tertiary:  var(--_color-text-tertiary);  /* WCAG AA: 4.7:1 auf --color-bg */
   --color-text-disabled:  var(--neutral-300);
   --color-text-on-accent: #ffffff;  /* Weißer Text auf farbigen Hintergründen */
 
@@ -108,13 +109,13 @@
    *    Violet — lebendig, modern, unverwechselbar.
    *    Harmoniert mit --module-calendar und dem Abend-Gradienten.
    * -------------------------------------------------------- */
-  --_color-accent:            #6c3aed;
-  --color-accent:             var(--_color-accent);   /* Violet — 5.63:1 auf weiß */
-  --_color-accent-hover:      #5b2fd4;
-  --color-accent-hover:       var(--_color-accent-hover);   /* Violet darker */
-  --_color-accent-active:     #4a26bb;
+  --_color-accent:            #7C3AED;
+  --color-accent:             var(--_color-accent);   /* Violet-600 (Skylight) — 5.72:1 auf weiß */
+  --_color-accent-hover:      #6D28D9;
+  --color-accent-hover:       var(--_color-accent-hover);   /* Violet-700 */
+  --_color-accent-active:     #5B21B6;
   --color-accent-active:      var(--_color-accent-active);  /* Violet-800 */
-  --color-accent-deep:        #3d1f9e;       /* Tiefer Akzent für Gradienten, Wetter-Widget */
+  --color-accent-deep:        #4C1D95;       /* Violet-900 — Tiefer Akzent für Gradienten, Wetter-Widget */
 
   /* Greeting-Gradienten: Tageszeit-Varianten */
   --greeting-morning-from: #C2410C;  /* Orange-700 — Morgensonne */
@@ -127,10 +128,10 @@
   --color-accent-light:       var(--_color-accent-light);   /* Violet-50 */
   --_color-accent-subtle:     #ede9fe;
   --color-accent-subtle:      var(--_color-accent-subtle);  /* Violet-100 */
-  --_color-btn-primary:       #5b2fd4;
-  --color-btn-primary:        var(--_color-btn-primary);    /* Violet — WCAG AAA auf weiß */
-  --_color-btn-primary-hover: #4a26bb;
-  --color-btn-primary-hover:  var(--_color-btn-primary-hover);  /* Violet-800 */
+  --_color-btn-primary:       #7C3AED;
+  --color-btn-primary:        var(--_color-btn-primary);    /* Violet-600 (Skylight FAB) */
+  --_color-btn-primary-hover: #6D28D9;
+  --color-btn-primary-hover:  var(--_color-btn-primary-hover);  /* Violet-700 */
 
   /* --------------------------------------------------------
    * 3. Farben - Semantisch
@@ -513,26 +514,26 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     /* Neutral-Skala — tiefer warm (Option A) */
-    --_neutral-50:  #141413;
-    --_neutral-100: #1A1A18;
-    --_neutral-150: #222220;
-    --_neutral-200: #2A2A28;
-    --_neutral-250: #333331;
-    --_neutral-300: #3D3D3A;
-    --_neutral-400: #636360;
-    --_neutral-500: #8E8D89;
-    --_neutral-600: #AEADB0;
-    --_neutral-700: #C8C7C3;
-    --_neutral-800: #E2E1DC;
-    --_neutral-900: #F5F4F1;
-    --_neutral-950: #FAFAF8;
+    --_neutral-50:  #16181C;
+    --_neutral-100: #1B1E22;
+    --_neutral-150: #21252A;
+    --_neutral-200: #282D33;
+    --_neutral-250: #32373E;
+    --_neutral-300: #3C424A;
+    --_neutral-400: #616873;
+    --_neutral-500: #888F99;
+    --_neutral-600: #A8AFB9;
+    --_neutral-700: #C6CCD4;
+    --_neutral-800: #E0E4EA;
+    --_neutral-900: #F4F6F8;
+    --_neutral-950: #FAFBFC;
 
-    --_color-surface:          #222220;
-    --_color-surface-3:        #2A2A28;
-    --_color-surface-elevated: #2A2A28;
-    --_color-surface-hover:    #333331;
+    --_color-surface:          #282D33;
+    --_color-surface-3:        #32373E;
+    --_color-surface-elevated: #32373E;
+    --_color-surface-hover:    #3C424A;
 
-    --_sidebar-bg:           #141413;
+    --_sidebar-bg:           #16181C;
     --_sidebar-shadow-light: rgba(255, 255, 255, 0.04);
     --_sidebar-shadow-dark:  rgba(0, 0, 0, 0.4);
 
@@ -594,9 +595,9 @@
     --_shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.60), 0 4px 12px rgba(0, 0, 0, 0.25);
     --_shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
 
-    --_glass-bg:               rgba(28, 28, 26, 0.75);
-    --_glass-bg-hover:         rgba(38, 38, 36, 0.82);
-    --_glass-bg-elevated:      rgba(46, 46, 44, 0.90);
+    --_glass-bg:               rgba(24, 27, 32, 0.75);
+    --_glass-bg-hover:         rgba(34, 38, 44, 0.82);
+    --_glass-bg-elevated:      rgba(44, 48, 54, 0.90);
     --_glass-border:           rgba(255, 255, 255, 0.10);
     --_glass-border-subtle:    rgba(255, 255, 255, 0.06);
     --_glass-highlight:        rgba(255, 255, 255, 0.09);
@@ -604,10 +605,10 @@
     --_glass-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(255, 255, 255, 0.07);
     --_glass-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.40), 0 0 0 1px rgba(255, 255, 255, 0.06);
     --_glass-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    --_glass-bg-card:          rgba(26, 26, 24, 0.50);
-    --_glass-bg-card-hover:    rgba(36, 36, 34, 0.62);
-    --_glass-bg-input:         rgba(22, 22, 20, 0.45);
-    --_glass-bg-toolbar:       rgba(28, 28, 26, 0.55);
+    --_glass-bg-card:          rgba(22, 25, 30, 0.50);
+    --_glass-bg-card-hover:    rgba(32, 36, 42, 0.62);
+    --_glass-bg-input:         rgba(20, 23, 28, 0.45);
+    --_glass-bg-toolbar:       rgba(24, 27, 32, 0.55);
     --_glass-tint-strength:    8%;
     --lg-blob-opacity:         0.55;  /* Dark: kräftigere Blobs */
   }
@@ -615,33 +616,33 @@
 
 [data-theme="dark"] {
     /* Neutral-Skala — tiefer warm (Option A) */
-    --_neutral-50:  #141413;
-    --_neutral-100: #1A1A18;
-    --_neutral-150: #222220;
-    --_neutral-200: #2A2A28;
-    --_neutral-250: #333331;
-    --_neutral-300: #3D3D3A;
-    --_neutral-400: #636360;
-    --_neutral-500: #8E8D89;
-    --_neutral-600: #AEADB0;   /* WCAG AA: ~5.6:1 auf #222220 */
-    --_neutral-700: #C8C7C3;
-    --_neutral-800: #E2E1DC;
-    --_neutral-900: #F5F4F1;
-    --_neutral-950: #FAFAF8;
+    --_neutral-50:  #16181C;
+    --_neutral-100: #1B1E22;
+    --_neutral-150: #21252A;
+    --_neutral-200: #282D33;
+    --_neutral-250: #32373E;
+    --_neutral-300: #3C424A;
+    --_neutral-400: #616873;
+    --_neutral-500: #888F99;
+    --_neutral-600: #A8AFB9;   /* WCAG AA: ~5.6:1 auf #282D33 */
+    --_neutral-700: #C6CCD4;
+    --_neutral-800: #E0E4EA;
+    --_neutral-900: #F4F6F8;
+    --_neutral-950: #FAFBFC;
 
     /* Semantische Aliase folgen automatisch via var(--neutral-*) */
-    --_color-surface:          #222220;
-    --_color-surface-3:        #2A2A28;
-    --_color-surface-elevated: #2A2A28;
-    --_color-surface-hover:    #333331;
+    --_color-surface:          #282D33;
+    --_color-surface-3:        #32373E;
+    --_color-surface-elevated: #32373E;
+    --_color-surface-hover:    #3C424A;
 
     /* Sidebar */
-    --_sidebar-bg:           #141413;
+    --_sidebar-bg:           #16181C;
     --_sidebar-shadow-light: rgba(255, 255, 255, 0.04);
     --_sidebar-shadow-dark:  rgba(0, 0, 0, 0.4);
 
     /* Akzent - Dark Mode (Violet hellt auf für Kontrast auf dunklen Flächen) */
-    --_color-accent:            #a78bfa;   /* Violet-400 — 6.05:1 auf #222220 */
+    --_color-accent:            #a78bfa;   /* Violet-400 — 6.05:1 auf #282D33 */
     --_color-accent-hover:      #9066f5;   /* Violet-500 */
     --_color-accent-active:     #7c3aed;   /* Violet-600 */
     --_color-accent-light:      #1e1040;
@@ -706,9 +707,9 @@
     --_shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
 
     /* Glass */
-    --_glass-bg:              rgba(28, 28, 26, 0.75);
-    --_glass-bg-hover:        rgba(38, 38, 36, 0.82);
-    --_glass-bg-elevated:     rgba(46, 46, 44, 0.90);
+    --_glass-bg:              rgba(24, 27, 32, 0.75);
+    --_glass-bg-hover:        rgba(34, 38, 44, 0.82);
+    --_glass-bg-elevated:     rgba(44, 48, 54, 0.90);
     --_glass-border:          rgba(255, 255, 255, 0.10);
     --_glass-border-subtle:   rgba(255, 255, 255, 0.06);
     --_glass-highlight:       rgba(255, 255, 255, 0.09);
@@ -716,10 +717,10 @@
     --_glass-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(255, 255, 255, 0.07);
     --_glass-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.40), 0 0 0 1px rgba(255, 255, 255, 0.06);
     --_glass-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    --_glass-bg-card:         rgba(26, 26, 24, 0.50);
-    --_glass-bg-card-hover:   rgba(36, 36, 34, 0.62);
-    --_glass-bg-input:        rgba(22, 22, 20, 0.45);
-    --_glass-bg-toolbar:      rgba(28, 28, 26, 0.55);
+    --_glass-bg-card:         rgba(22, 25, 30, 0.50);
+    --_glass-bg-card-hover:   rgba(32, 36, 42, 0.62);
+    --_glass-bg-input:        rgba(20, 23, 28, 0.45);
+    --_glass-bg-toolbar:      rgba(24, 27, 32, 0.55);
     --_glass-tint-strength:   8%;
     --lg-blob-opacity:        0.55;  /* Dark: kräftigere Blobs */
 }

@@ -28,6 +28,9 @@ const DEFAULT_TIME_FORMAT = '24h';
 const VALID_WIDGET_IDS = ['tasks', 'calendar', 'weather', 'meals', 'shopping', 'birthdays', 'budget', 'family', 'notes'];
 const VALID_WIDGET_SIZES = ['1x1', '1x2', '1x3', '1x4', '2x1', '2x2', '2x3', '2x4', '3x1', '3x2', '3x3', '3x4', '4x1', '4x2', '4x3', '4x4'];
 
+// Pro-Benutzer-Aufgaben-Widgets (z.B. "tasks_u3") — vom Frontend dynamisch erzeugt.
+const isUserTaskId = (id) => /^tasks_u\d+$/.test(id);
+
 // Modul-Slugs, die per Settings deaktiviert werden können.
 // Dashboard und Settings sind absichtlich nicht enthalten — sie sind essentiell.
 const TOGGLEABLE_MODULES = [
@@ -124,7 +127,7 @@ function parseModuleOrder(raw) {
 function normalizeWidgetConfig(input) {
   const valid = Array.isArray(input)
     ? input
-      .filter((w) => w && typeof w === 'object' && VALID_WIDGET_IDS.includes(w.id))
+      .filter((w) => w && typeof w === 'object' && (VALID_WIDGET_IDS.includes(w.id) || isUserTaskId(w.id)))
       .map((w, order) => ({
         id: w.id,
         visible: w.visible !== false,
@@ -135,8 +138,10 @@ function normalizeWidgetConfig(input) {
 
   // Fehlende Widget-IDs am Ende ergänzen
   const presentIds = new Set(valid.map((w) => w.id));
+  const hasTaskWidget = [...presentIds].some((id) => id === 'tasks' || isUserTaskId(id));
   for (const id of VALID_WIDGET_IDS) {
     if (!presentIds.has(id)) {
+      if (id === 'tasks' && hasTaskWidget) continue;
       valid.push({ id, visible: true, order: valid.length, size: defaultWidgetSize(id) });
     }
   }

@@ -13,7 +13,7 @@ import { syncAllBirthdayReminders } from '../services/birthdays.js';
 const log    = createLogger('Reminders');
 const router = express.Router();
 
-const VALID_ENTITY_TYPES = ['task', 'event'];
+const VALID_ENTITY_TYPES = ['task', 'event', 'birthday'];
 
 // --------------------------------------------------------
 // GET /api/v1/reminders/pending
@@ -31,8 +31,9 @@ router.get('/pending', (req, res) => {
       SELECT
         r.*,
         CASE r.entity_type
-          WHEN 'task'  THEN (SELECT title FROM tasks           WHERE id = r.entity_id)
-          WHEN 'event' THEN (SELECT title FROM calendar_events WHERE id = r.entity_id)
+          WHEN 'task'     THEN (SELECT title FROM tasks           WHERE id = r.entity_id)
+          WHEN 'event'    THEN (SELECT title FROM calendar_events WHERE id = r.entity_id)
+          WHEN 'birthday' THEN (SELECT name  FROM birthdays       WHERE id = r.entity_id)
         END AS entity_title
       FROM reminders r
       WHERE r.created_by  = ?
@@ -94,7 +95,7 @@ router.post('/', (req, res) => {
     ]);
 
     if (!entity_type || !VALID_ENTITY_TYPES.includes(entity_type)) {
-      errors.push('entity_type muss "task" oder "event" sein.');
+      errors.push('entity_type muss "task", "event" oder "birthday" sein.');
     }
 
     if (errors.length) {

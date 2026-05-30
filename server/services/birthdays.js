@@ -1,6 +1,3 @@
-const BIRTHDAY_COLOR = '#E11D48';
-const BIRTHDAY_RRULE = 'FREQ=YEARLY;INTERVAL=1';
-
 function pad2(n) {
   return String(n).padStart(2, '0');
 }
@@ -61,88 +58,12 @@ function birthdayReminderAt(birthDate, offsetMin = 0, from = new Date()) {
   return new Date(baseTime - (offsetMin || 0) * 60000).toISOString();
 }
 
-function eventTitle(name) {
-  return `Birthday: ${name}`;
-}
-
-function eventDescription(name, birthDate) {
-  return `Birthday reminder for ${name} (${birthDate}).`;
-}
-
-function syncBirthdayCalendarEvent(database, birthday) {
-  const payload = {
-    title: eventTitle(birthday.name),
-    description: eventDescription(birthday.name, birthday.birth_date),
-    start_datetime: birthday.birth_date,
-    end_datetime: null,
-    all_day: 1,
-    location: null,
-    color: BIRTHDAY_COLOR,
-    icon: 'cake',
-    assigned_to: null,
-    recurrence_rule: BIRTHDAY_RRULE,
-    created_by: birthday.created_by,
-  };
-
-  if (birthday.calendar_event_id) {
-    const existing = database.prepare('SELECT id FROM calendar_events WHERE id = ?').get(birthday.calendar_event_id);
-    if (existing) {
-      database.prepare(`
-        UPDATE calendar_events
-        SET title = ?, description = ?, start_datetime = ?, end_datetime = ?, all_day = ?,
-            location = ?, color = ?, icon = ?, assigned_to = ?, recurrence_rule = ?, created_by = ?,
-            external_source = 'local'
-        WHERE id = ?
-      `).run(
-        payload.title,
-        payload.description,
-        payload.start_datetime,
-        payload.end_datetime,
-        payload.all_day,
-        payload.location,
-        payload.color,
-        payload.icon,
-        payload.assigned_to,
-        payload.recurrence_rule,
-        payload.created_by,
-        birthday.calendar_event_id,
-      );
-      return birthday.calendar_event_id;
-    }
-  }
-
-  const result = database.prepare(`
-    INSERT INTO calendar_events
-      (title, description, start_datetime, end_datetime, all_day, location, color,
-       icon, assigned_to, created_by, recurrence_rule, external_source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')
-  `).run(
-    payload.title,
-    payload.description,
-    payload.start_datetime,
-    payload.end_datetime,
-    payload.all_day,
-    payload.location,
-    payload.color,
-    payload.icon,
-    payload.assigned_to,
-    payload.created_by,
-    payload.recurrence_rule,
-  );
-
-  database.prepare('UPDATE birthdays SET calendar_event_id = ? WHERE id = ?')
-    .run(result.lastInsertRowid, birthday.id);
-  return result.lastInsertRowid;
-}
-
 function syncBirthdayReminder(database, birthday, from = new Date()) {
-  if (!birthday.calendar_event_id) return null;
-
   if (birthday.reminder_offset === '') {
     database.prepare(`
       DELETE FROM reminders
-      WHERE entity_type = 'event' AND entity_id = ? AND created_by = ?
-    `).run(birthday.calendar_event_id, birthday.created_by);
+      WHERE entity_type = 'birthday' AND entity_id = ? AND created_by = ?
+    `).run(birthday.id, birthday.created_by);
     return null;
   }
 
@@ -150,34 +71,44 @@ function syncBirthdayReminder(database, birthday, from = new Date()) {
   const desired = birthdayReminderAt(birthday.birth_date, offsetMin, from);
   const existing = database.prepare(`
     SELECT * FROM reminders
-    WHERE entity_type = 'event' AND entity_id = ? AND created_by = ?
+    WHERE entity_type = 'birthday' AND entity_id = ? AND created_by = ?
     ORDER BY created_at DESC
-  `).all(birthday.calendar_event_id, birthday.created_by);
+  `).all(birthday.id, birthday.created_by);
 
   const active = existing.find((row) => row.dismissed === 0);
   if (active && active.remind_at === desired) return active.id;
 
   database.prepare(`
     DELETE FROM reminders
-    WHERE entity_type = 'event' AND entity_id = ? AND created_by = ?
-  `).run(birthday.calendar_event_id, birthday.created_by);
+    WHERE entity_type = 'birthday' AND entity_id = ? AND created_by = ?
+  `).run(birthday.id, birthday.created_by);
 
   const result = database.prepare(`
     INSERT INTO reminders (entity_type, entity_id, remind_at, created_by)
-    VALUES ('event', ?, ?, ?)
-  `).run(birthday.calendar_event_id, desired, birthday.created_by);
+    VALUES ('birthday', ?, ?, ?)
+  `).run(birthday.id, desired, birthday.created_by);
 
   return result.lastInsertRowid;
 }
 
 function syncBirthdayArtifacts(database, birthday, from = new Date()) {
-  const calendarEventId = syncBirthdayCalendarEvent(database, birthday);
-  const refreshed = { ...birthday, calendar_event_id: calendarEventId };
-  syncBirthdayReminder(database, refreshed, from);
-  return refreshed;
+  if (birthday.calendar_event_id) {
+    database.prepare(`
+      DELETE FROM reminders
+      WHERE entity_type = 'event' AND entity_id = ? AND created_by = ?
+    `).run(birthday.calendar_event_id, birthday.created_by);
+    database.prepare('DELETE FROM calendar_events WHERE id = ?').run(birthday.calendar_event_id);
+    database.prepare('UPDATE birthdays SET calendar_event_id = NULL WHERE id = ?').run(birthday.id);
+  }
+  syncBirthdayReminder(database, birthday, from);
+  return { ...birthday, calendar_event_id: null };
 }
 
 function deleteBirthdayArtifacts(database, birthday) {
+  database.prepare(`
+    DELETE FROM reminders
+    WHERE entity_type = 'birthday' AND entity_id = ? AND created_by = ?
+  `).run(birthday.id, birthday.created_by);
   if (birthday.calendar_event_id) {
     database.prepare(`
       DELETE FROM reminders
@@ -202,22 +133,22 @@ function syncAllBirthdayReminders(database, userId, from = new Date()) {
     SELECT * FROM birthdays WHERE created_by = ? ORDER BY birth_date ASC
   `).all(userId);
   birthdays.forEach((birthday) => {
-    const refreshed = birthday.calendar_event_id ? birthday : {
-      ...birthday,
-      calendar_event_id: syncBirthdayCalendarEvent(database, birthday),
-    };
-    syncBirthdayReminder(database, refreshed, from);
+    if (birthday.calendar_event_id) {
+      database.prepare(`
+        DELETE FROM reminders
+        WHERE entity_type = 'event' AND entity_id = ? AND created_by = ?
+      `).run(birthday.calendar_event_id, birthday.created_by);
+      database.prepare('DELETE FROM calendar_events WHERE id = ?').run(birthday.calendar_event_id);
+      database.prepare('UPDATE birthdays SET calendar_event_id = NULL WHERE id = ?').run(birthday.id);
+    }
+    syncBirthdayReminder(database, birthday, from);
   });
 }
 
 export {
-  BIRTHDAY_COLOR,
-  BIRTHDAY_RRULE,
   birthdayReminderAt,
   daysUntilBirthday,
   deleteBirthdayArtifacts,
-  eventDescription,
-  eventTitle,
   hydrateBirthday,
   nextBirthdayAge,
   nextBirthdayDate,

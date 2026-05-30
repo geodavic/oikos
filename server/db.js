@@ -1562,6 +1562,29 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_tasks_start_date ON tasks(start_date);
     `,
   },
+  {
+    version: 42,
+    description: 'Allow birthday entity type in reminders',
+    up(db) {
+      db.exec(`
+        CREATE TABLE reminders_new (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          entity_type TEXT    NOT NULL CHECK(entity_type IN ('task', 'event', 'birthday')),
+          entity_id   INTEGER NOT NULL,
+          remind_at   TEXT    NOT NULL,
+          dismissed   INTEGER NOT NULL DEFAULT 0,
+          created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        );
+        INSERT INTO reminders_new SELECT * FROM reminders;
+        DROP TABLE reminders;
+        ALTER TABLE reminders_new RENAME TO reminders;
+        CREATE INDEX IF NOT EXISTS idx_reminders_entity ON reminders(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_reminders_remind ON reminders(remind_at);
+        CREATE INDEX IF NOT EXISTS idx_reminders_user   ON reminders(created_by);
+      `);
+    },
+  },
 ];
 
 /**
