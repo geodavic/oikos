@@ -8,6 +8,7 @@ import { api, auth } from '/api.js';
 import { initI18n, getLocale, t } from '/i18n.js';
 import { esc } from '/utils/html.js';
 import { init as initReminders, stop as stopReminders } from '/reminders.js';
+import { init as initScreensaver, updateTimeout as updateScreensaverTimeout } from '/screensaver.js';
 import { isKitchenRoute, getLastKitchenRoute } from '/utils/kitchen-tabs.js';
 import { NAV_ICONS } from '/nav-icons.js';
 
@@ -1971,6 +1972,7 @@ if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
     }
     
     await initI18n();
+    initScreensaver();
     navigate(location.pathname, false);
   } catch (err) {
     console.error('[Router] Initialisierung fehlgeschlagen:', err);
@@ -2004,4 +2006,5 @@ window.oikos = {
     const route = allRoutes().find((r) => r.path === currentPath);
     updateThemeColorForRoute(route);
   },
+  updateScreensaverTimeout,
 };

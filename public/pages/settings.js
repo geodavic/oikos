@@ -16,6 +16,8 @@ import { getPwaInstallState, onPwaInstallStateChanged, promptPwaInstall } from '
 const SUPPORTED_CURRENCIES = ['AED', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HUF', 'INR', 'JPY', 'NOK', 'PLN', 'RUB', 'SAR', 'SEK', 'TRY', 'UAH', 'USD'];
 const SETTINGS_TAB_KEY = 'oikos:settings:tab';
 const APP_NAME_STORAGE_KEY = 'oikos-app-name';
+const SCREENSAVER_TIMEOUT_KEY = 'oikos-screensaver-timeout';
+const SCREENSAVER_OPTIONS = [0, 1, 2, 5, 10, 15, 30];
 const DEFAULT_APP_NAME = 'Oikos';
 const FAMILY_ROLES = ['dad', 'mom', 'parent', 'child', 'grandparent', 'relative', 'other'];
 const MAX_AVATAR_DATA_LENGTH = 768 * 1024;
@@ -356,6 +358,23 @@ export async function render(container, { user }) {
             <select class="form-input" id="time-format-select">
               <option value="24h"${prefs.time_format === '24h' ? ' selected' : ''}>24 ${t('settings.timeFormatHours')}</option>
               <option value="12h"${prefs.time_format === '12h' ? ' selected' : ''}>AM/PM</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2 class="settings-section__title">${t('settings.sectionScreensaver')}</h2>
+          <div class="settings-card">
+            <h3 class="settings-card__title">${t('settings.screensaverTimeoutTitle')}</h3>
+            <p class="form-hint" style="margin-bottom:var(--space-3)">${t('settings.screensaverTimeoutHint')}</p>
+            <label class="form-label" for="screensaver-timeout-select">${t('settings.screensaverTimeoutLabel')}</label>
+            <select class="form-input" id="screensaver-timeout-select">
+              ${SCREENSAVER_OPTIONS.map((n) => {
+                const stored = parseInt(localStorage.getItem(SCREENSAVER_TIMEOUT_KEY) ?? '0', 10);
+                const sel = stored === n ? ' selected' : '';
+                const label = n === 0 ? t('settings.screensaverOff') : `${n} ${t('settings.screensaverMin')}`;
+                return `<option value="${n}"${sel}>${label}</option>`;
+              }).join('')}
             </select>
           </div>
         </section>
@@ -1655,6 +1674,16 @@ function bindEvents(container, user, users, categories, icsSubscriptions, apiTok
       } catch (err) {
         window.oikos?.showToast(err.message ?? t('common.errorGeneric'), 'danger');
       }
+    });
+  }
+
+  const screensaverTimeoutSelect = container.querySelector('#screensaver-timeout-select');
+  if (screensaverTimeoutSelect) {
+    screensaverTimeoutSelect.addEventListener('change', () => {
+      const val = screensaverTimeoutSelect.value;
+      try { localStorage.setItem(SCREENSAVER_TIMEOUT_KEY, val); } catch (_) {}
+      window.oikos?.updateScreensaverTimeout(val);
+      window.oikos?.showToast(t('settings.screensaverSavedToast'), 'success');
     });
   }
 
