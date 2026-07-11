@@ -191,7 +191,7 @@ app.get('/manifest.webmanifest', apiLimiter, (req, res) => {
   res.type('application/manifest+json');
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.json({
-    name: `${appName} Familienplaner`,
+    name: `${appName} Family Planner`,
     short_name: appName,
     description: 'Selbstgehosteter Familienplaner',
     id: '/',

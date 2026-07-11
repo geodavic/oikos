@@ -225,7 +225,7 @@ class OikosInstallPrompt extends HTMLElement {
         vertical-align: -0.1em;
       }
 
-      @media (min-width: 1024px) {
+      @media (min-width: 768px) {
         :host {
           /* Desktop: Sidebar statt Bottom-Nav, Banner unten rechts */
           bottom: calc(var(--space-4, 16px) + env(safe-area-inset-bottom, 0px));

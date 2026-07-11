@@ -1026,7 +1026,7 @@ function initOfflineBanner() {
 
 /**
  * Versteckt die Bottom-Nav beim Runterscrollen, zeigt sie beim Hochscrollen.
- * Nur auf Mobile aktiv (< 1024px), da auf Desktop die Sidebar fest sichtbar ist.
+ * Nur auf Mobile aktiv (< 768px), da auf Desktop die Sidebar fest sichtbar ist.
  */
 function initNavHideOnScroll(container) {
   const nav = container.querySelector('.nav-bottom');
@@ -1915,7 +1915,7 @@ window.addEventListener('resize', () => {
 // --------------------------------------------------------
 // Virtuelle Tastatur: FAB ausblenden wenn Keyboard offen
 // Erkennung via visualViewport - Höhe < 75% des Fensters = Keyboard aktiv.
-// Nur auf Mobilgeräten relevant (< 1024px), Desktop hat keine virtuelle Tastatur.
+// Nur auf Mobilgeräten relevant (< 768px), Desktop hat keine virtuelle Tastatur.
 // --------------------------------------------------------
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', () => {

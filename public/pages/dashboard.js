@@ -261,13 +261,6 @@ const BUDGET_CATEGORY_LABEL_KEYS = {
 // Hilfsfunktionen
 // --------------------------------------------------------
 
-function greeting(displayName) {
-  const h = new Date().getHours();
-  if (h < 12) return t('dashboard.greetingMorning', { name: esc(displayName) });
-  if (h < 18) return t('dashboard.greetingDay',     { name: esc(displayName) });
-  return t('dashboard.greetingEvening', { name: esc(displayName) });
-}
-
 function formatDateTime(isoString) {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -685,64 +678,16 @@ function renderBudgetWidget(budget, currency) {
   </div>`;
 }
 
-function renderQuickAction({ route, label, icon, tone = '' }) {
-  return `
-    <button type="button" class="dashboard-action ${tone ? `dashboard-action--${tone}` : ''}" data-route="${route}">
-      <span class="dashboard-action__icon"><i data-lucide="${icon}" aria-hidden="true"></i></span>
-      <span class="dashboard-action__label">${label}</span>
-    </button>
-  `;
-}
-
-function renderTodayCard(icon, label, value, route, tone) {
-  return `
-    <button type="button" class="today-cockpit-card today-cockpit-card--${tone}" data-route="${route}">
-      <span class="today-cockpit-card__icon"><i data-lucide="${icon}" aria-hidden="true"></i></span>
-      <span class="today-cockpit-card__label">${esc(label)}</span>
-      <strong class="today-cockpit-card__value">${esc(value)}</strong>
-    </button>
-  `;
-}
-
-function renderTodayCockpit(data) {
-  const highlights = buildTodayHighlights(data);
-  const taskTitle = highlights.urgentTask?.title ?? t('dashboard.todayNoTasks');
-  const eventTitle = highlights.nextEvent?.title ?? t('dashboard.todayNoEvents');
-  const dinnerTitle = highlights.dinner?.title ?? t('dashboard.todayNoDinner');
-
-  return `
-    <section class="today-cockpit" aria-labelledby="today-cockpit-title">
-      <div class="today-cockpit__header">
-        <h2 id="today-cockpit-title">${esc(t('dashboard.todayTitle'))}</h2>
-        <span class="today-cockpit__date">${esc(formatDate(new Date()))}</span>
-      </div>
-      <div class="today-cockpit__grid">
-        ${renderTodayCard('check-square', t('dashboard.todayTask'), taskTitle, '/tasks', 'task')}
-        ${renderTodayCard('calendar', t('dashboard.todayEvent'), eventTitle, '/calendar', 'event')}
-        ${renderTodayCard('shopping-cart', t('dashboard.todayShopping'), t('dashboard.todayShoppingCount', { count: highlights.openShoppingCount }), '/shopping', 'shopping')}
-        ${renderTodayCard('utensils', t('dashboard.todayDinner'), dinnerTitle, '/meals', 'dinner')}
-      </div>
-    </section>
-  `;
-}
-
-
-function renderDashboardOverview(user, editing = false) {
+function renderDashboardOverview(editing = false) {
   const dateLabel = formatDate(new Date());
-
-  const actions = [
-    { route: '/tasks', label: t('nav.tasks'), icon: 'check-square', tone: 'blue' },
-    { route: '/calendar', label: t('nav.calendar'), icon: 'calendar', tone: 'violet' },
-    { route: '/shopping', label: t('nav.shopping'), icon: 'shopping-cart', tone: 'green' },
-    { route: '/notes', label: t('nav.notes'), icon: 'sticky-note', tone: 'amber' },
-  ].map(renderQuickAction).join('');
+  const timeLabel = formatTime(new Date());
 
   return `
     <section class="dashboard-overview">
       <div class="dashboard-overview__header">
         <div class="dashboard-overview__heading">
           <span class="dashboard-overview__date">${dateLabel}</span>
-          <h1 class="dashboard-overview__title">${greeting(user.display_name)}</h1>
+          <h1 class="dashboard-overview__title">${esc(timeLabel)}</h1>
         </div>
         <div class="dashboard-overview__tools">
           ${editing ? `
@@ -754,7 +699,7 @@ function renderDashboardOverview(user, editing = false) {
             <button class="btn btn--ghost" id="dashboard-customize-reset">${t('dashboard.customizeReset')}</button>
             <button class="btn btn--secondary" id="dashboard-customize-cancel">${t('common.cancel')}</button>
             <button class="btn btn--primary" id="dashboard-customize-save">${t('common.save')}</button>
-          </div>` : `<div class="dashboard-overview__actions">${actions}</div>`}
+          </div>` : ''}
           <button class="dashboard-icon-btn" id="dashboard-customize-btn"
                   aria-label="${editing ? t('dashboard.customizeExit') : t('dashboard.customize')}"
                   title="${editing ? t('dashboard.customizeExit') : t('dashboard.customize')}"
@@ -1474,8 +1419,7 @@ export async function render(container, { user }) {
     const shell = container.querySelector('#dashboard-shell');
     if (!shell) return;
     setHtml(shell, `
-      ${renderDashboardOverview(user, isCustomizing)}
-      ${renderTodayCockpit(data)}
+      ${renderDashboardOverview(isCustomizing)}
       ${renderDashboardLayout(cfg, data, weather, currency, { editing: isCustomizing })}
     `);
     wireLinks(container, rerender, { editing: isCustomizing });
@@ -1510,16 +1454,20 @@ export async function render(container, { user }) {
 
   initFab(container, _fabController.signal);
 
+  function updateOverviewClock() {
+    const titleEl = container.querySelector('.dashboard-overview__title');
+    if (titleEl) titleEl.textContent = formatTime(new Date());
+    const dateEl = container.querySelector('.dashboard-overview__date');
+    if (dateEl) dateEl.textContent = formatDate(new Date());
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
-    const titleEl = container.querySelector('.dashboard-overview__title');
-    if (titleEl) {
-      titleEl.replaceChildren();
-      titleEl.insertAdjacentHTML('afterbegin', greeting(user.display_name));
-    }
-    const dateEl  = container.querySelector('.dashboard-overview__date');
-    if (dateEl)  dateEl.textContent = formatDate(new Date());
+    updateOverviewClock();
   }, { signal: _fabController.signal });
+
+  const clockTimerId = setInterval(updateOverviewClock, 30 * 1000);
+  _fabController.signal.addEventListener('abort', () => clearInterval(clockTimerId));
 
   // 30-Minuten Auto-Refresh für Wetter
   const refreshBtn = container.querySelector('#weather-refresh-btn');

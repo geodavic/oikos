@@ -4,8 +4,8 @@
  * Abhängigkeiten: tokens.css, reset.css
  *
  * Navigation:
- *   Mobile (<1024px):  Bottom-Nav-Bar, 5 Haupt-Module
- *   Desktop (≥1024px): Expanded Sidebar mit Labels (220px)
+ *   Mobile (<768px):  Bottom-Nav-Bar, 5 Haupt-Module
+ *   Desktop (≥768px): Expanded Sidebar mit Labels (220px)
  *
  * Referenz: Apple HIG Sidebar-Pattern
  */
@@ -127,7 +127,7 @@
 }
 
 /* --------------------------------------------------------
- * Layout: Mobile (Standard, < 1024px)
+ * Layout: Mobile (Standard, < 768px)
  * -------------------------------------------------------- */
 .app-content {
   flex: 1;
@@ -334,7 +334,7 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   html:not(.search-kbd-done) .more-sheet__search-kbd {
     display: inline;
   }
@@ -676,7 +676,7 @@ html.fab-anim-done .page-fab {
 }
 
 /* Desktop: FAB Position anpassen (keine Bottom-Nav) und etwas kleiner */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .page-fab {
     bottom: var(--space-8);
     right: var(--space-8);
@@ -693,13 +693,13 @@ html.fab-anim-done .page-fab {
 }
 
 /* ================================================================
- * Sidebar Navigation - Desktop (≥ 1024px)
+ * Sidebar Navigation - Desktop (≥ 768px)
  *
  * Design: Flach, kein Neumorphismus. Dezenter Seitenrand.
  * Aktiver State: Hintergrund-Highlight + Akzentstreifen links.
  * Hover: Subtile Hintergrundfarbe, kein Shadow.
  * ================================================================ */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   :root {
     --sidebar-width: var(--sidebar-width-expanded);
   }
@@ -898,7 +898,7 @@ html.fab-anim-done .page-fab {
   text-wrap: balance;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .page {
     padding: var(--space-8) var(--space-8);
   }
@@ -975,7 +975,7 @@ html.fab-anim-done .page-fab {
   outline-offset: 2px;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .card--padded {
     padding: var(--space-5);
   }
@@ -1251,7 +1251,7 @@ html.fab-anim-done .page-fab {
   white-space: nowrap;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .btn {
     min-height: var(--target-md);
   }
@@ -1320,7 +1320,7 @@ html.fab-anim-done .page-fab {
   border-radius: var(--radius-sm);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .btn--icon {
     min-height: var(--target-md);
     min-width: var(--target-md);
@@ -1329,7 +1329,7 @@ html.fab-anim-done .page-fab {
 
 
 /* FAB und page-fab ausblenden wenn virtuelle Tastatur offen (nur Mobile) */
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .keyboard-visible .fab,
   .keyboard-visible .page-fab {
     visibility: hidden;
@@ -1355,7 +1355,7 @@ html.fab-anim-done .page-fab {
   min-height: var(--target-lg);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .input,
   .form-input {
     min-height: var(--target-md);
@@ -1625,7 +1625,7 @@ html.fab-anim-done .page-fab {
   .grid--2 { grid-template-columns: repeat(2, 1fr); }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .grid--3 { grid-template-columns: repeat(3, 1fr); }
 }
 
@@ -1667,7 +1667,7 @@ html.fab-anim-done .page-fab {
   min-width: 0;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .layout-master-detail {
     flex-direction: row;
     gap: var(--space-6);
@@ -1715,7 +1715,7 @@ html.fab-anim-done .page-fab {
   min-width: 0;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .layout-content-aside {
     flex-direction: row;
     gap: var(--space-6);
@@ -1810,13 +1810,7 @@ html.fab-anim-done .page-fab {
   width: min(calc(100% - var(--space-8)), 380px);
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
-  .toast-container {
-    bottom: var(--space-8);
-  }
-}
-
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .toast-container {
     bottom: var(--space-6);
     left: calc(var(--sidebar-width) + (100% - var(--sidebar-width)) / 2);
@@ -1980,7 +1974,7 @@ html.fab-anim-done .page-fab {
   border-color: var(--color-accent-hover);
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .rrule-day {
     width: var(--target-base);
     height: var(--target-base);

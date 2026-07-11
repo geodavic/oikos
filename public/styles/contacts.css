@@ -23,7 +23,7 @@
   overflow: hidden;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .contacts-page { height: 100dvh; }
 }
 
@@ -79,7 +79,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .contacts-toolbar__search-input { font-size: var(--text-sm); }
 }
 

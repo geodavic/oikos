@@ -23,7 +23,7 @@
   overflow: hidden;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .notes-page { height: 100dvh; }
 }
 
@@ -84,7 +84,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .notes-toolbar__search-input { font-size: var(--text-sm); }
 }
 
@@ -104,7 +104,7 @@
   .notes-grid { columns: 3; }
 }
 
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   .notes-grid { columns: 4; }
 }
 
