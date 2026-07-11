@@ -704,6 +704,7 @@ function renderAppShell(container) {
     kitchenBtn.appendChild(kitchenBtnWrap);
     kitchenBtn.appendChild(kitchenBtnLabel);
     kitchenBtn.addEventListener('click', () => navigate(getLastKitchenRoute()));
+    kitchenBtn.hidden = !['meals', 'recipes', 'shopping'].some((m) => !_disabledModules.has(m));
     bottomItems.appendChild(kitchenBtn);
 
     const moreBtn = document.createElement('button');

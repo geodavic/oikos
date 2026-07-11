@@ -506,6 +506,10 @@
 }
 
 /* ── Nav-Item (Bottom-Bar): Basis-State ── */
+.nav-item[hidden] {
+  display: none;
+}
+
 .nav-item {
   flex: 1;
   display: flex;
