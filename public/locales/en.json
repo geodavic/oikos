@@ -1099,16 +1099,16 @@
     "housekeepingPaymentTasksHint": "When enabled, each check-in creates a task for paying the staff member. Completing that task marks the visit payment as paid.",
     "housekeepingPaymentTasksSaved": "Housekeeping payment setting saved.",
     "breadcrumbLabel": "Pfad",
-    "emptyStateAddFirst": "Füge dein erstes Konto hinzu",
-    "emptyStateNoAccounts": "Noch keine Konten verbunden",
-    "helpTooltipCalDAV": "CalDAV ermöglicht die Synchronisation von Kalendern mit iCloud, Nextcloud und anderen CalDAV-Servern.",
-    "helpTooltipCardDAV": "CardDAV ermöglicht die Synchronisation von Kontakten mit iCloud, Nextcloud und anderen CardDAV-Servern.",
+    "emptyStateAddFirst": "Add your first account",
+    "emptyStateNoAccounts": "No accounts connected yet",
+    "helpTooltipCalDAV": "CalDAV lets you sync calendars with iCloud, Nextcloud, and other CalDAV servers.",
+    "helpTooltipCardDAV": "CardDAV lets you sync contacts with iCloud, Nextcloud, and other CardDAV servers.",
     "navigationLabel": "Einstellungsnavigation",
     "sectionAdmin": "Administration",
     "sectionCloudServices": "Cloud-Dienste",
     "sectionModulesNav": "Module",
     "sectionOpenStandards": "CalDAV & CardDAV",
-    "sectionPersonal": "Persönlich",
+    "sectionPersonal": "Personal",
     "sectionSync": "Synchronisation",
     "statusError": "Fehler",
     "statusNeverSynced": "Noch nie synchronisiert",
@@ -1540,8 +1540,8 @@
     "setupProfileAction": "Create profile"
   },
   "userMultiSelect": {
-    "moreUsers": "weitere",
-    "nobody": "- Niemand -"
+    "moreUsers": "more",
+    "nobody": "- Nobody -"
   },
   "splitExpenses": {
     "title": "Shared expenses",

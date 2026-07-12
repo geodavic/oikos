@@ -1092,10 +1092,10 @@
     "calendarEnabled": "Calendar enabled",
     "calendarsRefreshed": "Calendars refreshed",
     "deleteAccountConfirm": "Really delete CalDAV account? All synced calendars will be removed.",
-    "emptyStateAddFirst": "Füge dein erstes Konto hinzu",
-    "emptyStateNoAccounts": "Noch keine Konten verbunden",
-    "helpTooltipCalDAV": "CalDAV ermöglicht die Synchronisation von Kalendern mit iCloud, Nextcloud und anderen CalDAV-Servern.",
-    "helpTooltipCardDAV": "CardDAV ermöglicht die Synchronisation von Kontakten mit iCloud, Nextcloud und anderen CardDAV-Servern.",
+    "emptyStateAddFirst": "İlk hesabınızı ekleyin",
+    "emptyStateNoAccounts": "Henüz bağlı hesap yok",
+    "helpTooltipCalDAV": "CalDAV, takvimleri iCloud, Nextcloud ve diğer CalDAV sunucularıyla senkronize etmenizi sağlar.",
+    "helpTooltipCardDAV": "CardDAV, kişileri iCloud, Nextcloud ve diğer CardDAV sunucularıyla senkronize etmenizi sağlar.",
     "lastSync": "Last synced",
     "modulesHint": "Disabled modules disappear from the navigation. Data is preserved and reappears once a module is re-enabled.",
     "modulesSaved": "Module visibility saved.",
@@ -1106,7 +1106,7 @@
     "sectionModules": "Modules",
     "sectionModulesNav": "Module",
     "sectionOpenStandards": "CalDAV & CardDAV",
-    "sectionPersonal": "Persönlich",
+    "sectionPersonal": "Kişisel",
     "sectionSync": "Synchronisation",
     "statusError": "Fehler",
     "statusNeverSynced": "Noch nie synchronisiert",
@@ -1538,8 +1538,8 @@
     "setupProfileAction": "Profil oluştur"
   },
   "userMultiSelect": {
-    "moreUsers": "weitere",
-    "nobody": "- Niemand -"
+    "moreUsers": "diğer",
+    "nobody": "- Kimse -"
   },
   "splitExpenses": {
     "title": "Paylaşılan giderler",

@@ -1092,10 +1092,10 @@
     "calendarEnabled": "Calendar enabled",
     "calendarsRefreshed": "Calendars refreshed",
     "deleteAccountConfirm": "Really delete CalDAV account? All synced calendars will be removed.",
-    "emptyStateAddFirst": "Füge dein erstes Konto hinzu",
-    "emptyStateNoAccounts": "Noch keine Konten verbunden",
-    "helpTooltipCalDAV": "CalDAV ermöglicht die Synchronisation von Kalendern mit iCloud, Nextcloud und anderen CalDAV-Servern.",
-    "helpTooltipCardDAV": "CardDAV ermöglicht die Synchronisation von Kontakten mit iCloud, Nextcloud und anderen CardDAV-Servern.",
+    "emptyStateAddFirst": "添加您的第一个账户",
+    "emptyStateNoAccounts": "尚未连接任何账户",
+    "helpTooltipCalDAV": "CalDAV 可让您将日历与 iCloud、Nextcloud 及其他 CalDAV 服务器同步。",
+    "helpTooltipCardDAV": "CardDAV 可让您将联系人与 iCloud、Nextcloud 及其他 CardDAV 服务器同步。",
     "lastSync": "Last synced",
     "modulesHint": "Disabled modules disappear from the navigation. Data is preserved and reappears once a module is re-enabled.",
     "modulesSaved": "Module visibility saved.",
@@ -1106,7 +1106,7 @@
     "sectionModules": "Modules",
     "sectionModulesNav": "Module",
     "sectionOpenStandards": "CalDAV & CardDAV",
-    "sectionPersonal": "Persönlich",
+    "sectionPersonal": "个人",
     "sectionSync": "Synchronisation",
     "statusError": "Fehler",
     "statusNeverSynced": "Noch nie synchronisiert",
@@ -1538,8 +1538,8 @@
     "setupProfileAction": "创建档案"
   },
   "userMultiSelect": {
-    "moreUsers": "weitere",
-    "nobody": "- Niemand -"
+    "moreUsers": "更多",
+    "nobody": "- 无人 -"
   },
   "splitExpenses": {
     "title": "共享支出",

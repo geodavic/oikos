@@ -1092,10 +1092,10 @@
     "calendarEnabled": "Calendar enabled",
     "calendarsRefreshed": "Calendars refreshed",
     "deleteAccountConfirm": "Really delete CalDAV account? All synced calendars will be removed.",
-    "emptyStateAddFirst": "Füge dein erstes Konto hinzu",
-    "emptyStateNoAccounts": "Noch keine Konten verbunden",
-    "helpTooltipCalDAV": "CalDAV ermöglicht die Synchronisation von Kalendern mit iCloud, Nextcloud und anderen CalDAV-Servern.",
-    "helpTooltipCardDAV": "CardDAV ermöglicht die Synchronisation von Kontakten mit iCloud, Nextcloud und anderen CardDAV-Servern.",
+    "emptyStateAddFirst": "अपना पहला खाता जोड़ें",
+    "emptyStateNoAccounts": "अभी तक कोई खाता कनेक्ट नहीं है",
+    "helpTooltipCalDAV": "CalDAV से आप कैलेंडर को iCloud, Nextcloud और अन्य CalDAV सर्वरों के साथ सिंक कर सकते हैं।",
+    "helpTooltipCardDAV": "CardDAV से आप संपर्कों को iCloud, Nextcloud और अन्य CardDAV सर्वरों के साथ सिंक कर सकते हैं।",
     "lastSync": "Last synced",
     "modulesHint": "Disabled modules disappear from the navigation. Data is preserved and reappears once a module is re-enabled.",
     "modulesSaved": "Module visibility saved.",
@@ -1106,7 +1106,7 @@
     "sectionModules": "Modules",
     "sectionModulesNav": "Module",
     "sectionOpenStandards": "CalDAV & CardDAV",
-    "sectionPersonal": "Persönlich",
+    "sectionPersonal": "व्यक्तिगत",
     "sectionSync": "Synchronisation",
     "statusError": "Fehler",
     "statusNeverSynced": "Noch nie synchronisiert",
@@ -1538,8 +1538,8 @@
     "setupProfileAction": "प्रोफ़ाइल बनाएँ"
   },
   "userMultiSelect": {
-    "moreUsers": "weitere",
-    "nobody": "- Niemand -"
+    "moreUsers": "और",
+    "nobody": "- कोई नहीं -"
   },
   "splitExpenses": {
     "title": "साझा खर्च",
