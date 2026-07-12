@@ -20,6 +20,13 @@ import * as db from '../db.js';
 
 const GOOGLE_COLOR = '#4285F4';
 
+/** Shifts a YYYY-MM-DD date string by n days (n may be negative). */
+function shiftDateStr(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function upsertExternalCalendar(source, externalId, name, color) {
   const row = db.get().prepare(`
     INSERT INTO external_calendars (source, external_id, name, color)
@@ -340,7 +347,11 @@ function upsertGoogleEvents(items, calRefId = null, calColor = GOOGLE_COLOR) {
 
     const allDay      = !!(item.start?.date && !item.start?.dateTime);
     const startDt     = allDay ? item.start.date : (item.start?.dateTime || item.start?.date);
-    const endDt       = allDay ? (item.end?.date || null) : (item.end?.dateTime || item.end?.date || null);
+    // Google's end.date for all-day events is exclusive (the day after the last event day) -
+    // locally end_datetime is stored inclusive, so shift it back by 1 day.
+    const endDt       = allDay
+      ? (item.end?.date ? shiftDateStr(item.end.date, -1) : null)
+      : (item.end?.dateTime || item.end?.date || null);
     const title       = item.summary || '(kein Titel)';
     const description = item.description || null;
     const location    = item.location    || null;
@@ -390,8 +401,11 @@ function localEventToGoogle(event) {
   };
 
   if (allDay) {
-    gEvent.start = { date: event.start_datetime.slice(0, 10) };
-    gEvent.end   = { date: event.end_datetime ? event.end_datetime.slice(0, 10) : event.start_datetime.slice(0, 10) };
+    // Local end_datetime is inclusive; Google expects end.date exclusive (day after the last event day).
+    const startDate = event.start_datetime.slice(0, 10);
+    const endDate   = event.end_datetime ? event.end_datetime.slice(0, 10) : startDate;
+    gEvent.start = { date: startDate };
+    gEvent.end   = { date: shiftDateStr(endDate, 1) };
   } else {
     gEvent.start = { dateTime: event.start_datetime, timeZone: 'Europe/Berlin' };
     gEvent.end   = { dateTime: event.end_datetime   || event.start_datetime, timeZone: 'Europe/Berlin' };

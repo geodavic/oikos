@@ -407,11 +407,9 @@ function addDays(dateStr, n) {
   return isoDate(d);
 }
 
-function getMondayOf(dateStr) {
+function getSundayOf(dateStr) {
   const d   = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1 - day);
-  d.setDate(d.getDate() + diff);
+  d.setDate(d.getDate() - d.getDay());
   return isoDate(d);
 }
 
@@ -562,8 +560,8 @@ function getMonthRange(dateStr) {
 }
 
 function getWeekRange(dateStr) {
-  const monday = getMondayOf(dateStr);
-  return { from: monday, to: addDays(monday, 6) };
+  const sunday = getSundayOf(dateStr);
+  return { from: sunday, to: addDays(sunday, 6) };
 }
 
 function getAgendaRange(dateStr) {
@@ -829,9 +827,8 @@ function renderMonthView(container) {
 
   // Erster Tag des Monats
   const firstDay  = new Date(year, month, 1);
-  // Montag-basiert: 0=Mo … 6=So
-  let startOffset = firstDay.getDay() - 1;
-  if (startOffset < 0) startOffset = 6;
+  // Sonntag-basiert: 0=So … 6=Sa
+  const startOffset = firstDay.getDay();
 
   // 42 Tage anzeigen (6 Wochen)
   const startDate = new Date(firstDay);
@@ -847,7 +844,7 @@ function renderMonthView(container) {
   container.insertAdjacentHTML('beforeend', `
     <div class="month-view">
       <div class="month-weekdays">
-        ${[t('calendar.dayShortMonday'),t('calendar.dayShortTuesday'),t('calendar.dayShortWednesday'),t('calendar.dayShortThursday'),t('calendar.dayShortFriday'),t('calendar.dayShortSaturday'),t('calendar.dayShortSunday')].map((n) => `<div class="month-weekday">${n}</div>`).join('')}
+        ${[t('calendar.dayShortSunday'),t('calendar.dayShortMonday'),t('calendar.dayShortTuesday'),t('calendar.dayShortWednesday'),t('calendar.dayShortThursday'),t('calendar.dayShortFriday'),t('calendar.dayShortSaturday')].map((n) => `<div class="month-weekday">${n}</div>`).join('')}
       </div>
       <div class="month-grid" id="month-grid">
         ${days.map(({ date, inMonth }) => renderMonthDay(date, inMonth)).join('')}
@@ -925,8 +922,8 @@ function renderWeekView(container) {
   const days = isMobile
     ? Array.from({ length: 3 }, (_, i) => addDays(state.cursor, i - 1))
     : (() => {
-        const monday = getMondayOf(state.cursor);
-        return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+        const sunday = getSundayOf(state.cursor);
+        return Array.from({ length: 7 }, (_, i) => addDays(sunday, i));
       })();
   const colCount = days.length;
 
