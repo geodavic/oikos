@@ -193,7 +193,7 @@ app.get('/manifest.webmanifest', apiLimiter, (req, res) => {
   res.json({
     name: `${appName} Family Planner`,
     short_name: appName,
-    description: 'Selbstgehosteter Familienplaner',
+    description: 'Self-hosted family planner',
     id: '/',
     start_url: '/',
     scope: '/',
@@ -202,7 +202,7 @@ app.get('/manifest.webmanifest', apiLimiter, (req, res) => {
     orientation: 'portrait-primary',
     theme_color: '#007AFF',
     background_color: '#F5F5F7',
-    lang: 'de-DE',
+    lang: 'en',
     categories: ['productivity', 'lifestyle'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
