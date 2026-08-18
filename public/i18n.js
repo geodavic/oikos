@@ -6,7 +6,7 @@
  */
 
 const SUPPORTED_LOCALES = ['de', 'en', 'es', 'fr', 'it', 'sv', 'el', 'ru', 'tr', 'zh', 'ja', 'ar', 'hi', 'pt', 'uk', 'pl'];
-const DEFAULT_LOCALE = 'de';
+const DEFAULT_LOCALE = 'en';
 const STORAGE_KEY = 'oikos-locale';
 const DATE_FORMAT_KEY = 'oikos-date-format';
 const TIME_FORMAT_KEY = 'oikos-time-format';

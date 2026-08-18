@@ -34,11 +34,13 @@ const MIGRATIONS_SQL = {
                               CHECK(status IN ('open', 'in_progress', 'done')),
       due_date        TEXT,
       due_time        TEXT,
+      start_date      TEXT,
       assigned_to     INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_by      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       is_recurring    INTEGER NOT NULL DEFAULT 0,
       recurrence_rule TEXT,
       parent_task_id  INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+      recurrence_source_id INTEGER,
       created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
@@ -263,6 +265,32 @@ const MIGRATIONS_SQL = {
       user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       PRIMARY KEY (event_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS chore_completions_log (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id      INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category     TEXT    NOT NULL,
+      task_title   TEXT    NOT NULL,
+      completed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      completed_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chore_completions_log_user_completed ON chore_completions_log(user_id, completed_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_chore_completions_log_completed ON chore_completions_log(completed_at);
+    CREATE INDEX IF NOT EXISTS idx_chore_completions_log_task ON chore_completions_log(task_id);
+
+    CREATE TABLE IF NOT EXISTS chore_assignment_log (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id      INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category     TEXT    NOT NULL,
+      task_title   TEXT    NOT NULL,
+      completed_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chore_assignment_log_user_completed ON chore_assignment_log(user_id, completed_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_chore_assignment_log_task ON chore_assignment_log(task_id);
+
+    CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_source ON tasks(recurrence_source_id);
   `,
   2: `
     CREATE TABLE IF NOT EXISTS sync_config (

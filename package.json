@@ -33,7 +33,8 @@
     "test:caldav": "node --experimental-sqlite test-caldav-sync.js",
     "test:carddav": "node --experimental-sqlite test-carddav.js",
     "test:split-expenses": "node --experimental-sqlite test-split-expenses.js",
-    "test": "node --experimental-sqlite test-db.js && node --experimental-sqlite test-dashboard.js && node --experimental-sqlite test-tasks.js && node --experimental-sqlite test-multi-assignment.js && node --experimental-sqlite test-shopping.js && npm run test:meals && npm run test:calendar && node --experimental-sqlite test-notes-contacts-budget.js && npm run test:ux-utils && npm run test:modal-utils && npm run test:reminders && npm run test:api && npm run test:ics-parser && npm run test:ics-sub && npm run test:setup && npm run test:kitchen-tabs && npm run test:mobile-scroll-layout && npm run test:frontend-audit && npm run test:backup-scheduler && npm run test:caldav && npm run test:carddav && npm run test:split-expenses"
+    "test:chore-points": "node --experimental-sqlite test-chore-points.js",
+    "test": "node --experimental-sqlite test-db.js && node --experimental-sqlite test-dashboard.js && node --experimental-sqlite test-tasks.js && node --experimental-sqlite test-multi-assignment.js && node --experimental-sqlite test-shopping.js && npm run test:meals && npm run test:calendar && node --experimental-sqlite test-notes-contacts-budget.js && npm run test:ux-utils && npm run test:modal-utils && npm run test:reminders && npm run test:api && npm run test:ics-parser && npm run test:ics-sub && npm run test:setup && npm run test:kitchen-tabs && npm run test:mobile-scroll-layout && npm run test:frontend-audit && npm run test:backup-scheduler && npm run test:caldav && npm run test:carddav && npm run test:split-expenses && npm run test:chore-points"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

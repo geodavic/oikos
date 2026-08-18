@@ -31,6 +31,7 @@ const BUILT_IN_MODULES = [
   { id: 'budget', labelKey: 'nav.budget', icon: 'wallet' },
   { id: 'documents', labelKey: 'nav.documents', icon: 'folder-lock' },
   { id: 'housekeeping', labelKey: 'nav.housekeeping', icon: 'paintbrush' },
+  { id: 'rewards', labelKey: 'nav.rewards', icon: 'trophy' },
   { id: 'meals', labelKey: 'nav.meals', icon: 'utensils' },
   { id: 'recipes', labelKey: 'nav.recipes', icon: 'book-text' },
   { id: 'shopping', labelKey: 'nav.shopping', icon: 'shopping-cart' },

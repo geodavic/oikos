@@ -365,6 +365,10 @@
   transition: opacity var(--transition-base);
 }
 
+.task-card--overdue {
+  border-left-color: var(--color-danger);
+}
+
 .task-card__main {
   display: flex;
   align-items: flex-start;
@@ -826,4 +830,10 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.task-field-hint {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
 }

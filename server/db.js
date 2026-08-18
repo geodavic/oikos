@@ -1585,6 +1585,75 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 43,
+    description: 'Chore points: task point value + append-only points ledger + recurrence linkage',
+    up: `
+      ALTER TABLE tasks ADD COLUMN points INTEGER;
+      ALTER TABLE tasks ADD COLUMN recurrence_source_id INTEGER;
+
+      CREATE TABLE IF NOT EXISTS chore_points_log (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id      INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        points       INTEGER NOT NULL CHECK(points > 0),
+        category     TEXT    NOT NULL,
+        task_title   TEXT    NOT NULL,
+        completed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        completed_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chore_points_log_user_completed ON chore_points_log(user_id, completed_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_chore_points_log_completed ON chore_points_log(completed_at);
+      CREATE INDEX IF NOT EXISTS idx_chore_points_log_task ON chore_points_log(task_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_source ON tasks(recurrence_source_id);
+    `,
+  },
+  {
+    version: 44,
+    description: 'Chore tracking: drop points, tally household task completions instead',
+    up: `
+      ALTER TABLE tasks DROP COLUMN points;
+
+      ALTER TABLE chore_points_log RENAME TO chore_completions_log;
+      ALTER TABLE chore_completions_log DROP COLUMN points;
+
+      DROP INDEX IF EXISTS idx_chore_points_log_user_completed;
+      DROP INDEX IF EXISTS idx_chore_points_log_completed;
+      DROP INDEX IF EXISTS idx_chore_points_log_task;
+
+      CREATE INDEX IF NOT EXISTS idx_chore_completions_log_user_completed ON chore_completions_log(user_id, completed_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_chore_completions_log_completed ON chore_completions_log(completed_at);
+      CREATE INDEX IF NOT EXISTS idx_chore_completions_log_task ON chore_completions_log(task_id);
+    `,
+  },
+  {
+    version: 45,
+    description: 'Chore workload log: track who a completed task was assigned to, separate from who got personal credit',
+    up: `
+      CREATE TABLE IF NOT EXISTS chore_assignment_log (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id      INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        category     TEXT    NOT NULL,
+        task_title   TEXT    NOT NULL,
+        completed_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chore_assignment_log_user_completed ON chore_assignment_log(user_id, completed_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_chore_assignment_log_task ON chore_assignment_log(task_id);
+
+      -- Best-effort Backfill aus bestehenden Erledigungen + aktuellen Zuweisungen.
+      -- Der Zuweisungs-Stand zum tatsächlichen Abschlusszeitpunkt ist nicht mehr
+      -- rekonstruierbar, aber Zuweisungen ändern sich in der Praxis kaum nach
+      -- Abschluss einer Aufgabe - der aktuelle Stand ist eine vernünftige Näherung.
+      INSERT INTO chore_assignment_log (task_id, user_id, category, task_title, completed_at)
+      SELECT l.task_id, ta.user_id, l.category, l.task_title, l.completed_at
+      FROM chore_completions_log l
+      JOIN task_assignments ta ON ta.task_id = l.task_id
+      WHERE l.task_id IS NOT NULL;
+    `,
+  },
 ];
 
 /**

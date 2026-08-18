@@ -7,7 +7,7 @@
 import { createLogger } from '../logger.js';
 import express from 'express';
 import * as db from '../db.js';
-import { nextOccurrence } from '../services/recurrence.js';
+import { nextOccurrenceAfterCompletion } from '../services/recurrence.js';
 import * as v from '../middleware/validate.js';
 
 const log = createLogger('Tasks');
@@ -92,7 +92,7 @@ function subtaskProgress(taskId) {
 
 /** Eingabe-Validierung für Task-Felder (zentralisiert über validate.js). */
 function validateTaskInput(body, isCreate = true) {
-  return v.collectErrors([
+  const errors = v.collectErrors([
     v.str(body.title,       'title',       { required: isCreate }),
     v.str(body.description, 'description', { required: false, max: v.MAX_TEXT }),
     v.oneOf(body.priority,  VALID_PRIORITIES, 'priority'),
@@ -103,6 +103,14 @@ function validateTaskInput(body, isCreate = true) {
     v.time(body.due_time,   'due_time'),
     v.rrule(body.recurrence_rule, 'recurrence_rule'),
   ]);
+
+  // Wiederkehrende Aufgaben brauchen einen Anker (Start- oder Fälligkeitsdatum),
+  // sonst kann beim Abschließen kein nächstes Vorkommen berechnet werden.
+  if (body.is_recurring && !body.start_date && !body.due_date) {
+    errors.push('start_date is required for recurring tasks.');
+  }
+
+  return errors;
 }
 
 // --------------------------------------------------------
@@ -211,6 +219,13 @@ router.post('/', (req, res) => {
     const userIds  = parseAssignedTo(req.body.assigned_to);
     const firstUid = userIds[0] ?? null;
 
+    // Wiederkehrende Aufgaben brauchen zwingend ein Fälligkeitsdatum, um beim
+    // Abschließen das nächste Vorkommen berechnen zu können. Fällt auf
+    // start_date zurück (der eigentliche Anker), notfalls auf heute.
+    const effectiveDueDate = is_recurring
+      ? (due_date || start_date || new Date().toISOString().slice(0, 10))
+      : due_date;
+
     // Tiefe begrenzen: Subtasks dürfen keine eigenen Subtasks haben (max. 2 Ebenen)
     if (parent_task_id) {
       const parent = db.get().prepare('SELECT parent_task_id FROM tasks WHERE id = ?')
@@ -228,7 +243,7 @@ router.post('/', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         title.trim(), description, category, priority,
-        start_date, due_date, due_time, firstUid, req.session.userId, parent_task_id,
+        start_date, effectiveDueDate, due_time, firstUid, req.session.userId, parent_task_id,
         is_recurring ? 1 : 0, recurrence_rule
       );
       setAssignments(db.get(), result.lastInsertRowid, userIds);
@@ -283,6 +298,11 @@ router.put('/:id', (req, res) => {
           .all(task.id).map((r) => r.user_id);
     const firstUid = userIds[0] ?? null;
 
+    // Siehe POST /: wiederkehrende Aufgaben brauchen immer ein Fälligkeitsdatum.
+    const effectiveDueDate = is_recurring
+      ? (due_date || start_date || new Date().toISOString().slice(0, 10))
+      : due_date;
+
     db.get().transaction(() => {
       db.get().prepare(`
         UPDATE tasks SET
@@ -291,7 +311,7 @@ router.put('/:id', (req, res) => {
           is_recurring = ?, recurrence_rule = ?
         WHERE id = ?
       `).run(title.trim(), description, category, priority,
-             status, start_date, due_date, due_time, firstUid,
+             status, start_date, effectiveDueDate, due_time, firstUid,
              is_recurring ? 1 : 0, recurrence_rule, req.params.id);
       setAssignments(db.get(), task.id, userIds);
       syncHousekeepingPaymentStatus(db.get(), req.params.id, status);
@@ -321,42 +341,116 @@ router.put('/:id', (req, res) => {
 // --------------------------------------------------------
 router.patch('/:id/status', (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, completed_by_ids } = req.body;
     if (!VALID_STATUSES.includes(status))
       return res.status(400).json({ error: `Invalid status. Allowed: ${VALID_STATUSES.join(', ')}`, code: 400 });
 
-    const result = db.get().prepare('UPDATE tasks SET status = ? WHERE id = ?')
-      .run(status, req.params.id);
+    const d = db.get();
+    const before = d.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+    if (!before) return res.status(404).json({ error: 'Task not found.', code: 404 });
 
-    if (result.changes === 0)
-      return res.status(404).json({ error: 'Task not found.', code: 404 });
-
-    syncHousekeepingPaymentStatus(db.get(), req.params.id, status);
-
-    // Wiederkehrende Aufgabe: nächste Instanz erstellen wenn erledigt
-    if (status === 'done') {
-      const task = db.get().prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-      if (task?.is_recurring && task.recurrence_rule && !task.parent_task_id) {
-        const nextDate = nextOccurrence(task.due_date, task.recurrence_rule);
-        if (nextDate) {
-          const existingAssignments = db.get()
-            .prepare('SELECT user_id FROM task_assignments WHERE task_id = ?')
-            .all(task.id).map((r) => r.user_id);
-          db.get().transaction(() => {
-            const newTask = db.get().prepare(`
-              INSERT INTO tasks (title, description, category, priority, status,
-                due_date, due_time, assigned_to, created_by, is_recurring, recurrence_rule)
-              VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, 1, ?)
-            `).run(
-              task.title, task.description, task.category, task.priority,
-              nextDate, task.due_time, task.assigned_to, task.created_by,
-              task.recurrence_rule
-            );
-            setAssignments(db.get(), newTask.lastInsertRowid, existingAssignments);
-          })();
-        }
+    // Optionale Attributions-Liste: wer die Erledigung tatsächlich zugeschrieben bekommt
+    // (kann von den Zugewiesenen abweichen, z.B. wenn ein Elternteil die Aufgabe eines
+    // Kindes erledigt). Standard (falls nicht angegeben): die zugewiesenen Personen.
+    let completedByIds = null;
+    if (completed_by_ids !== undefined) {
+      if (!Array.isArray(completed_by_ids))
+        return res.status(400).json({ error: 'completed_by_ids must be an array.', code: 400 });
+      completedByIds = completed_by_ids.map(Number).filter(Number.isFinite);
+      if (completedByIds.length) {
+        const placeholders = completedByIds.map(() => '?').join(',');
+        const found = d.prepare(`SELECT id FROM users WHERE id IN (${placeholders})`).all(...completedByIds);
+        if (found.length !== new Set(completedByIds).size)
+          return res.status(400).json({ error: 'completed_by_ids contains an unknown user id.', code: 400 });
       }
     }
+
+    const justCompleted = before.status !== 'done' && status === 'done';
+    const justReopened  = before.status === 'done' && status !== 'done';
+    const actorId = req.authUserId || req.session.userId || null;
+    const today = new Date().toISOString().slice(0, 10);
+
+    d.transaction(() => {
+      d.prepare('UPDATE tasks SET status = ? WHERE id = ?').run(status, before.id);
+      syncHousekeepingPaymentStatus(d, before.id, status);
+
+      // Erledigung protokollieren: eine Zeile pro kreditierter Person, jede zählt als
+      // eine Erledigung (kein Punktwert mehr). Ohne explizite completed_by_ids fällt
+      // dies auf die zugewiesenen Personen zurück (bisheriges Verhalten).
+      if (justCompleted && before.category === 'household') {
+        const assignees = d.prepare('SELECT user_id FROM task_assignments WHERE task_id = ?')
+          .all(before.id).map((r) => r.user_id);
+        const recipients = completedByIds ?? assignees;
+
+        const insertLog = d.prepare(`
+          INSERT INTO chore_completions_log (task_id, user_id, category, task_title, completed_by)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        for (const uid of recipients) {
+          insertLog.run(before.id, uid, before.category, before.title, actorId);
+        }
+
+        // Zuweisungs-Protokoll: unabhängig davon, wer die Erledigung zugeschrieben
+        // bekommt, zählt sie als "geschuldete Arbeit erledigt" für jeden ursprünglich
+        // Zugewiesenen. Ohne dieses separate Protokoll würde eine an eine andere
+        // Person umverteilte Aufgabe spurlos aus dem Erwartungswert des ursprünglich
+        // Zugewiesenen verschwinden (siehe Rewards-Arbeitslast-Projektion).
+        const insertAssignment = d.prepare(`
+          INSERT INTO chore_assignment_log (task_id, user_id, category, task_title)
+          VALUES (?, ?, ?, ?)
+        `);
+        for (const uid of assignees) {
+          insertAssignment.run(before.id, uid, before.category, before.title);
+        }
+      }
+
+      // Erledigung zurücknehmen, wenn eine erledigte Aufgabe wieder geöffnet wird -
+      // eindeutig über task_id, keine Mehrdeutigkeit bei wiederkehrenden Vorkommen.
+      if (justReopened) {
+        d.prepare('DELETE FROM chore_completions_log WHERE task_id = ?').run(before.id);
+        d.prepare('DELETE FROM chore_assignment_log WHERE task_id = ?').run(before.id);
+
+        // Falls diese Aufgabe bereits eine nächste Instanz erzeugt hat: die
+        // Nachfolge-Instanz nur entfernen, wenn sie noch unangetastet ist
+        // (offen und ohne eigene Erledigungs-Historie) - sonst bleibt echte Arbeit erhalten.
+        const successor = d.prepare(`
+          SELECT id FROM tasks
+          WHERE recurrence_source_id = ? AND status = 'open'
+            AND NOT EXISTS (SELECT 1 FROM chore_completions_log WHERE task_id = tasks.id)
+        `).get(before.id);
+        if (successor) {
+          d.prepare('DELETE FROM tasks WHERE id = ?').run(successor.id);
+        }
+      }
+
+      // Wiederkehrende Aufgabe: nächste Instanz erstellen wenn erledigt.
+      // Fällt auf start_date bzw. heute zurück, falls due_date fehlt (z.B. bei
+      // Altdaten aus der Zeit vor der verpflichtenden Anker-Vorgabe) - so bleibt
+      // die Serie auch bei Legacy-Aufgaben ohne Fälligkeitsdatum am Leben.
+      // Bei verspätetem Abschluss (baseDate liegt in der Vergangenheit) wird so
+      // weit vorgerückt, dass mindestens ein volles Intervall Abstand zum
+      // tatsächlichen Abschlusstag bleibt - sonst wäre die nächste Instanz oft
+      // schon morgen fällig. Bei rechtzeitigem/vorzeitigem Abschluss unverändert.
+      if (justCompleted && before.is_recurring && before.recurrence_rule && !before.parent_task_id) {
+        const baseDate = before.due_date || before.start_date || today;
+        const nextDate = nextOccurrenceAfterCompletion(baseDate, before.recurrence_rule, today);
+        if (nextDate) {
+          const existingAssignments = d.prepare('SELECT user_id FROM task_assignments WHERE task_id = ?')
+            .all(before.id).map((r) => r.user_id);
+          const newTask = d.prepare(`
+            INSERT INTO tasks (title, description, category, priority, status,
+              start_date, due_date, due_time, assigned_to, created_by, is_recurring, recurrence_rule,
+              recurrence_source_id)
+            VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, 1, ?, ?)
+          `).run(
+            before.title, before.description, before.category, before.priority,
+            nextDate, nextDate, before.due_time, before.assigned_to, before.created_by,
+            before.recurrence_rule, before.id
+          );
+          setAssignments(d, newTask.lastInsertRowid, existingAssignments);
+        }
+      }
+    })();
 
     res.json({ data: { id: Number(req.params.id), status } });
   } catch (err) {

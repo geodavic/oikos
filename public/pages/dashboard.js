@@ -8,6 +8,7 @@ import { api } from '/api.js';
 import { t, formatDate, formatTime, getLocale } from '/i18n.js';
 import { esc, fmtLocation, renderMarkdownLight } from '/utils/html.js';
 import { openModal, closeModal } from '/components/modal.js';
+import { openCompletedByModal, needsCompletionAttribution } from '/utils/task-completion.js';
 
 // Hält den AbortController des aktuellen FAB-Listeners - wird bei jedem render() erneuert.
 let _fabController = null;
@@ -123,7 +124,7 @@ function showOnboarding(appContainer) {
 // --------------------------------------------------------
 
 // NEU — primäre Inhalte (tasks, calendar) ganz oben
-const WIDGET_IDS = ['tasks', 'calendar', 'weather', 'meals', 'shopping', 'birthdays', 'budget', 'family', 'notes'];
+const WIDGET_IDS = ['tasks', 'calendar', 'weather', 'meals', 'shopping', 'birthdays', 'budget', 'family', 'notes', 'rewards'];
 
 function isUserTaskId(id) { return /^tasks_u\d+$/.test(id); }
 
@@ -231,13 +232,14 @@ function widgetLabel(id, tasksByUser = []) {
     birthdays: () => t('nav.birthdays'),
     budget:   () => t('nav.budget'),
     family:   () => t('dashboard.familyMembers'),
+    rewards:  () => t('dashboard.chorePoints'),
   };
   return (map[id] ?? (() => id))();
 }
 
 function widgetIcon(id) {
   if (isUserTaskId(id)) return 'check-square';
-  const map = { tasks: 'check-square', calendar: 'calendar', birthdays: 'cake', budget: 'wallet', family: 'users', shopping: 'shopping-cart', meals: 'utensils', notes: 'pin', weather: 'cloud-sun' };
+  const map = { tasks: 'check-square', calendar: 'calendar', birthdays: 'cake', budget: 'wallet', family: 'users', shopping: 'shopping-cart', meals: 'utensils', notes: 'pin', weather: 'cloud-sun', rewards: 'trophy' };
   return map[id] ?? 'layout-dashboard';
 }
 
@@ -678,6 +680,27 @@ function renderBudgetWidget(budget, currency) {
   </div>`;
 }
 
+function renderChorePointsWidget(topUsers = []) {
+  const hasData = topUsers.some((u) => (u.completions || 0) > 0);
+  const rows = topUsers.map((u, i) => `
+    <div class="chore-points-widget__row">
+      <span class="chore-points-widget__rank">${i + 1}</span>
+      <span class="family-widget-avatar chore-points-widget__avatar" style="background:${esc(u.avatar_color || '#64748b')}">
+        ${u.avatar_data ? `<img src="${esc(u.avatar_data)}" alt="${esc(u.display_name)}" loading="lazy">` : esc(initials(u.display_name))}
+      </span>
+      <span class="chore-points-widget__name">${esc(u.display_name)}</span>
+      <strong class="chore-points-widget__points">${u.completions || 0}</strong>
+    </div>
+  `).join('');
+
+  return `<div class="widget widget--rewards">
+    ${widgetHeader('trophy', t('dashboard.chorePoints'), null, '/rewards')}
+    <div class="chore-points-widget">
+      ${hasData ? rows : `<div class="chore-points-widget__empty">${t('dashboard.noRewardsData')}</div>`}
+    </div>
+  </div>`;
+}
+
 function renderDashboardOverview(editing = false) {
   const dateLabel = formatDate(new Date());
   const timeLabel = formatTime(new Date());
@@ -767,6 +790,7 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false }
     notes: () => renderPinnedNotes(data.pinnedNotes ?? []),
     shopping: () => renderShoppingLists(data.shoppingLists ?? []),
     weather: () => (weather ? renderWeatherWidget(weather) : ''),
+    rewards: () => renderChorePointsWidget(data.rewards ?? []),
   };
 
   const tiles = cfg
@@ -1162,9 +1186,9 @@ function openCustomizeModal(currentConfig, onSave, tasksByUser = []) {
 // Task Quick-Action Modal
 // --------------------------------------------------------
 
-function openTaskQuickAction(taskId, taskTitle, rerender) {
+function openTaskQuickAction(task, users, rerender) {
   openModal({
-    title: taskTitle,
+    title: task.title,
     size: 'sm',
     content: `
       <div class="modal-actions">
@@ -1181,7 +1205,13 @@ function openTaskQuickAction(taskId, taskTitle, rerender) {
     onSave: (panel) => {
       panel.querySelector('[data-action="done"]').addEventListener('click', async () => {
         try {
-          await api.patch(`/tasks/${taskId}/status`, { status: 'done' });
+          let extra = {};
+          if (needsCompletionAttribution(task)) {
+            const completedByIds = await openCompletedByModal(task, users);
+            if (completedByIds === null) return; // Nutzer hat die Zuordnung abgebrochen
+            extra = { completed_by_ids: completedByIds };
+          }
+          await api.patch(`/tasks/${task.id}/status`, { status: 'done', ...extra });
           closeModal({ force: true });
           window.oikos?.showToast(t('tasks.swipedDoneToast'), 'success');
           rerender();
@@ -1191,7 +1221,7 @@ function openTaskQuickAction(taskId, taskTitle, rerender) {
       });
       panel.querySelector('[data-action="edit"]').addEventListener('click', () => {
         closeModal({ force: true });
-        window.oikos.navigate(`/tasks?open=${taskId}`);
+        window.oikos.navigate(`/tasks?open=${task.id}`);
       });
     },
   });
@@ -1201,7 +1231,19 @@ function openTaskQuickAction(taskId, taskTitle, rerender) {
 // Navigations-Links verdrahten
 // --------------------------------------------------------
 
-function wireLinks(container, rerender, { editing = false } = {}) {
+/** Findet das volle Task-Objekt (inkl. category/points) aus den geladenen Dashboard-Daten. */
+function findDashboardTask(data, taskId) {
+  const numId = Number(taskId);
+  const fromUrgent = (data.urgentTasks ?? []).find((task) => task.id === numId);
+  if (fromUrgent) return fromUrgent;
+  for (const userInfo of data.tasksByUser ?? []) {
+    const found = userInfo.tasks.find((task) => task.id === numId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function wireLinks(container, rerender, data, { editing = false } = {}) {
   container.querySelectorAll('[data-route]').forEach((el) => {
     if (el.id === 'fab-main' || el.closest('#fab-actions')) return;
     if (editing && el.closest('.widget-wrapper--editing')) return;
@@ -1219,7 +1261,13 @@ function wireLinks(container, rerender, { editing = false } = {}) {
   // Task-Items öffnen Quick-Action-Modal statt direkt zu navigieren
   if (editing) return;
   container.querySelectorAll('.task-item[data-task-id]').forEach((el) => {
-    const show = () => openTaskQuickAction(el.dataset.taskId, el.dataset.taskTitle, rerender);
+    const show = () => {
+      // Fallback (nur id/title) falls die Aufgabe aus irgendeinem Grund nicht in
+      // den geladenen Dashboard-Daten gefunden wird - verhält sich dann wie zuvor.
+      const task = findDashboardTask(data, el.dataset.taskId)
+        ?? { id: el.dataset.taskId, title: el.dataset.taskTitle };
+      openTaskQuickAction(task, data.users ?? [], rerender);
+    };
     el.addEventListener('click', show);
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); }
@@ -1422,7 +1470,7 @@ export async function render(container, { user }) {
       ${renderDashboardOverview(isCustomizing)}
       ${renderDashboardLayout(cfg, data, weather, currency, { editing: isCustomizing })}
     `);
-    wireLinks(container, rerender, { editing: isCustomizing });
+    wireLinks(container, rerender, data, { editing: isCustomizing });
     if (window.lucide) window.lucide.createIcons();
     wireWeatherRefresh(container, (updatedWeather) => {
       weather = updatedWeather;

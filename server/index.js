@@ -40,6 +40,7 @@ import familyRouter from './routes/family.js';
 import backupRouter from './routes/backup.js';
 import housekeepingRouter from './routes/housekeeping.js';
 import modulesRouter from './routes/modules.js';
+import rewardsRouter from './routes/rewards.js';
 
 const log     = createLogger('Server');
 const logSync = createLogger('Sync');
@@ -262,6 +263,7 @@ app.use('/api/v1/family', familyRouter);
 app.use('/api/v1/backup', backupRouter);
 app.use('/api/v1/housekeeping', housekeepingRouter);
 app.use('/api/v1/modules', modulesRouter);
+app.use('/api/v1/rewards', rewardsRouter);
 
 // --------------------------------------------------------
 // Health-Check (für Docker)

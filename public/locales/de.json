@@ -56,6 +56,7 @@
     "kitchen": "Küche",
     "search": "Suche",
     "housekeeping": "Hauspflege",
+    "rewards": "Punkte",
     "splitExpenses": "Aufteilen",
     "kitchenActiveLabel": "Küche, {{section}} aktiv",
     "section": {
@@ -126,6 +127,8 @@
     "topExpense": "Größte Ausgabe",
     "budgetEntries": "Einträge",
     "noBudgetData": "Keine Budgetdaten in diesem Monat.",
+    "chorePoints": "Haushaltspunkte",
+    "noRewardsData": "Diese Woche noch keine Aufgaben erledigt.",
     "customize": "Anpassen",
     "customizeTitle": "Widgets anpassen",
     "customizeReset": "Standard",
@@ -163,6 +166,8 @@
     "dueTimeLabel": "Uhrzeit",
     "assignedLabel": "Zugewiesen an",
     "assignedNobody": "- Niemand -",
+    "completedByLabel": "Erledigt von",
+    "completedByModalTitle": "Wer hat das erledigt?",
     "statusLabel": "Status",
     "priorityUrgent": "Dringend",
     "priorityHigh": "Hoch",
@@ -182,6 +187,7 @@
     "categoryMisc": "Sonstiges",
     "overdue": "Überfällig",
     "overdueDay": "{{count}}d überfällig",
+    "filterOverdue": "Nur überfällige",
     "dueToday": "Heute fällig",
     "dueTomorrow": "Morgen fällig",
     "groupOverdue": "Überfällig",
@@ -239,6 +245,7 @@
     "kanbanArchived": "Archiviert",
     "reminderNeedsDueDate": "Lege ein Fälligkeitsdatum fest, um Aufgabenerinnerungen zu aktivieren.",
     "startDateLabel": "Startdatum",
+    "startDateRecurringHint": "Wird als Fälligkeitsdatum für jedes Vorkommen verwendet.",
     "startsOn": "Startet am {{date}}",
     "showFuture": "Geplante anzeigen"
   },
@@ -1540,6 +1547,16 @@
       }
     },
     "setupProfileAction": "Profil anlegen"
+  },
+  "rewards": {
+    "title": "Haushaltspunkte",
+    "leaderboard": "Rangliste",
+    "history": "Verlauf",
+    "thisWeek": "Diese Woche",
+    "thisMonth": "Diesen Monat",
+    "periodToggleLabel": "Zeitraum",
+    "choresUnit": "Aufgaben",
+    "noData": "Noch keine Aufgaben erledigt."
   },
   "splitExpenses": {
     "title": "Gemeinsame Ausgaben",

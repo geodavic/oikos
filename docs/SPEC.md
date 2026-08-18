@@ -35,6 +35,7 @@ Every table: `id INTEGER PRIMARY KEY`, `created_at TEXT`, `updated_at TEXT` (ISO
 | is_recurring | INTEGER | 0/1 |
 | recurrence_rule | TEXT | iCal RRULE |
 | parent_task_id | INTEGER | FK → Tasks (max 2 levels) |
+| recurrence_source_id | INTEGER | nullable, FK → Tasks — set on an auto-spawned recurring occurrence, points to the task it was spawned from (migration v43) |
 
 ### Task Assignments
 Join table for multi-person task assignment (migration v32). Existing `assigned_to` values were migrated automatically.
@@ -44,6 +45,29 @@ Join table for multi-person task assignment (migration v32). Existing `assigned_
 | task_id | INTEGER | FK → Tasks (CASCADE delete), NOT NULL |
 | user_id | INTEGER | FK → Users (CASCADE delete), NOT NULL |
 | PRIMARY KEY | | (task_id, user_id) |
+
+### Chore Completions Log
+Append-only ledger of household chore completions (migration v43, renamed from `chore_points_log` and stripped of its `points` column in migration v44 — every task counts equally as one completion, no point values). One row is inserted per credited user when a `household`-category task transitions to `done`; the row is deleted if that same task is later re-opened (reversal). `category`/`task_title` are snapshotted at completion time, so later edits to the source task never rewrite history.
+
+| Column | Type | Constraint |
+|--------|------|-----------|
+| task_id | INTEGER | FK → Tasks (SET NULL on delete) |
+| user_id | INTEGER | FK → Users (CASCADE delete), NOT NULL — the family member credited with the completion |
+| category | TEXT | NOT NULL — snapshotted task category |
+| task_title | TEXT | NOT NULL — snapshotted task title |
+| completed_by | INTEGER | FK → Users (SET NULL on delete) — who triggered the completion (may differ from `user_id`) |
+| completed_at | TEXT | NOT NULL, ISO8601 timestamp |
+
+### Chore Assignment Log
+Append-only ledger of who a completed household task was *assigned to* (migration v45), separate from `chore_completions_log`'s "who got personal credit". Inserted alongside `chore_completions_log` on every household task completion — one row per current assignee, regardless of `completed_by_ids`. Exists so that reassigning credit (e.g. a parent finishing a kid's chore) doesn't cause the task to silently vanish from the original assignee's expected workload once it leaves `open` status — see the Rewards workload-projection note below. Deleted alongside `chore_completions_log` on reversal (re-opening a done task).
+
+| Column | Type | Constraint |
+|--------|------|-----------|
+| task_id | INTEGER | FK → Tasks (SET NULL on delete) |
+| user_id | INTEGER | FK → Users (CASCADE delete), NOT NULL — who the task was assigned to |
+| category | TEXT | NOT NULL — snapshotted task category |
+| task_title | TEXT | NOT NULL — snapshotted task title |
+| completed_at | TEXT | NOT NULL, ISO8601 timestamp |
 
 ### Shopping Lists
 | Column | Type | Constraint |
@@ -700,13 +724,14 @@ Skeleton loading instead of spinners (skeleton renders all 9 widgets at their co
 - CRUD + subtasks (max 2 levels, checkbox list, progress bar)
 - **Multi-person assignment:** tasks can be assigned to multiple family members simultaneously via `UserMultiSelect` checkbox dropdown; stacked avatars (up to 3 visible + `+N` overflow badge) shown on task cards and Kanban
 - Priorities shown visually via color/icon
-- Recurring: automatically create next instance on completion
+- Recurring: automatically create next instance on completion. Recurring tasks have no separate due-date field in the UI — the start date is the anchor, and each occurrence's due date is derived from it (`start_date`, falling back to `due_date` or today if neither is set). This is enforced both client-side (start date becomes a required field once a recurrence is chosen) and server-side (`validateTaskInput` rejects a recurring task with neither date set; `PATCH /:id/status` self-heals with a today fallback for any pre-existing recurring task saved without either date). **Overdue-aware spawn timing:** if the completed occurrence was actually overdue (completion date after its due date), the next occurrence isn't just the raw next step in the pattern — `nextOccurrenceAfterCompletion()` (`server/services/recurrence.js`) advances through the series until the result is at least one full recurrence interval past the real completion date, so catching up on a stale task doesn't immediately spawn another one due tomorrow. On-time or early completions are unaffected and behave exactly like the plain `nextOccurrence()` step.
 - Archive: completed tasks can be archived (status = 'archived'); visible in a separate Archived filter
 - Inline reminder presets: offset from due date/time — 15 min, 1 h, 1 d, 2 d, 1 w, 2 w, or fully custom offset
 - **Bulk actions (list view only):** select multiple tasks via checkboxes and apply batch operations (mark done, mark open, archive, delete); bulk select toggle in toolbar
 - **Start date:** tasks can have an optional start date; tasks with a future start date are hidden from the default list view to reduce cognitive load. A "Show scheduled" toggle chip in the filter bar reveals all upcoming planned tasks. Task cards display a "Starts on …" badge when a start date is set.
 - Mobile swipe: left = done, right = edit
-- Badge for overdue tasks
+- **Overdue tasks:** cards for open/in-progress tasks past their due date get a red-accented left border (`.task-card--overdue`) in addition to the existing red due-date label; a "Overdue only" toggle chip in the filter bar filters the list/Kanban to just those tasks (purely client-side, since overdue-ness depends on the current time rather than a stored field).
+- **Chore tracking:** completing any household-category task credits selected family members via `chore_completions_log` — every task counts equally as one completion (no point values). See [Rewards](#rewards-rewards).
 
 ### Shopping Lists (`/shopping`)
 
@@ -808,6 +833,19 @@ Module for managing household staff workflows. Navigation uses violet accent the
 - **Supply requests:** request supplies with optional quantity; supplies can be linked directly to shopping lists
 - **Dashboard integration:** housekeeping widgets show today's open sessions and upcoming chores
 - **Document folder:** a "Hausreinigung" folder in Documents is auto-created on first worker creation; receipts can be linked to individual work sessions
+
+### Rewards (`/rewards`)
+
+Gamified chore tracking for the whole family (migration v43; switched from point values to equal-weight completion counts in migration v44 — every completed household task counts as exactly one, no per-task point value). No redemption/spend system — this is purely a visual leaderboard/progress feature.
+
+- **Completion logging:** `PATCH /api/v1/tasks/:id/status` inserts one row into `chore_completions_log` per credited user when any household-category task transitions to `done`; `category`/`task_title` are snapshotted at completion time so later edits to the task don't rewrite history
+- **Completed-by attribution:** completing a household task always opens a "Who completed this?" picker (reusing the shared `UserMultiSelect` component via `public/utils/task-completion.js`, shared by both the Tasks page and the Dashboard's task quick-action modal), pre-selected to the task's assignee(s) but editable — so if someone finishes another family member's chore for them, the completion can be credited to whoever actually did the work instead of defaulting to the assignee. The request carries an optional `completed_by_ids` array; when omitted (e.g. bulk actions, direct API calls), the server falls back to crediting every assignee as before. `chore_completions_log.completed_by` separately records the acting user (who pressed done), independent of who the completion (`user_id`) was credited to.
+- **Reversal on un-complete:** un-marking a done task deletes its `chore_completions_log` rows for that task; a completion is only ever "live" while its task stays marked done
+- **Recurring chores:** completing a recurring household task spawns the next occurrence and records `recurrence_source_id`; if the original is later un-marked, the spawned successor is deleted too, but only if it's still untouched (`status = 'open'`, no completions of its own) — real work already done on the successor is never destroyed. See the overdue-aware spawn timing note under [Tasks](#tasks-tasks) — a late completion skips ahead so the next occurrence isn't due almost immediately.
+- **Leaderboard:** ranked by workload-adjusted progress (`progress_pct`), not raw completion counts, so a family member with fewer assigned chores isn't penalized relative to one with more. `progress_pct = round(completions / expected_completions * 100)`, treated as 100% when nothing is expected. `completions` (the numerator, "actual") is strictly personal — completions credited to that user via `chore_completions_log`, regardless of who a task was assigned to. `expected_completions` (the denominator, "workload") is strictly assignment-based, built from two sources: already-completed occurrences that were assigned to that user (`chore_assignment_log`, regardless of who ended up credited) plus projected completions still owed from their currently open household tasks, using `expandOccurrences()` (`server/services/recurrence.js`) to project how many occurrences of each open recurring task's pattern fall within the period window (since future occurrences aren't spawned as rows until the current one is completed). Keeping these two bases separate matters: if a task assigned to Dad gets completed and credited to Mom, it still counts toward Dad's `expected_completions` (his workload got handled, just not by him) without inflating his `completions`, so his `progress_pct` correctly reflects he didn't personally do his assigned chore — rather than the task silently vanishing from his tally once it leaves `open` status. Zero-filled so every family member appears even with 0 completions/tasks.
+- **History chart:** completions-per-period bar chart, several weeks/months back — unaffected by the workload adjustment, since "expected" is inherently a snapshot of currently open tasks, not something meaningful to recompute for closed past periods
+- **Dashboard widget:** compact "Chore points" tile showing the current week's top 3 (by completion count)
+- API: `GET /api/v1/rewards/leaderboard?period=week|month&offset=0` (returns `completions`/`expected_completions`/`progress_pct` per user), `GET /api/v1/rewards/history?period=week|month&count=8`, `GET /api/v1/rewards/history/:userId`
 
 ### Login (`/login`)
 

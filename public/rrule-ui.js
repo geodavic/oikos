@@ -4,7 +4,7 @@
  * Abhängigkeiten: /i18n.js
  */
 
-import { t, dateInputPlaceholder, formatDateInput, parseDateInput, isDateInputValid } from '/i18n.js';
+import { t } from '/i18n.js';
 
 const FREQ_OPTIONS = () => [
   { value: '',        label: t('rrule.freqNone') },
@@ -109,8 +109,7 @@ export function renderRRuleFields(prefix, existingRule) {
           </div>
           <div class="form-group rrule-until-field" style="margin-bottom:0">
             <label class="label form-label" for="${prefix}-rrule-until">${t('rrule.labelUntil')}</label>
-            <input class="input form-input js-date-input" type="text" id="${prefix}-rrule-until"
-                   value="${formatDateInput(parsed.until)}" placeholder="${dateInputPlaceholder()}" inputmode="text">
+            <input class="input form-input" type="date" id="${prefix}-rrule-until" value="${parsed.until || ''}">
           </div>
         </div>
 
@@ -156,13 +155,6 @@ export function bindRRuleEvents(root, prefix) {
 
   intervalEl?.addEventListener('input', updateUnit);
 
-  root.querySelectorAll('.js-date-input').forEach((input) => {
-    input.addEventListener('blur', () => {
-      const parsed = parseDateInput(input.value);
-      if (parsed) input.value = formatDateInput(parsed);
-    });
-  });
-
   // Day-Toggle
   root.querySelectorAll(`#${prefix}-rrule-weekdays .rrule-day`).forEach(btn => {
     btn.addEventListener('click', () => {
@@ -187,9 +179,9 @@ export function bindRRuleEvents(root, prefix) {
 export function getRRuleValues(root, prefix) {
   const freq     = root.querySelector(`#${prefix}-rrule-freq`)?.value || '';
   const interval = parseInt(root.querySelector(`#${prefix}-rrule-interval`)?.value, 10) || 1;
-  const untilInput = root.querySelector(`#${prefix}-rrule-until`);
-  const untilRaw = untilInput?.value || '';
-  const until = parseDateInput(untilRaw);
+  // Natives <input type="date"> liefert entweder '' oder ein valides YYYY-MM-DD - keine
+  // manuelle Parsing-/Validierungslogik mehr nötig.
+  const until = root.querySelector(`#${prefix}-rrule-until`)?.value || '';
 
   const byday = [];
   root.querySelectorAll(`#${prefix}-rrule-weekdays .rrule-day--active`).forEach(btn => {
@@ -200,6 +192,6 @@ export function getRRuleValues(root, prefix) {
   return {
     is_recurring:    !!rule,
     recurrence_rule: rule,
-    valid_until:     isDateInputValid(untilRaw),
+    valid_until:     true,
   };
 }

@@ -198,6 +198,8 @@
   --module-documents:  var(--_module-documents);    /* Blue - secure family documents */
   --_module-housekeeping: #7C3AED;
   --module-housekeeping:  var(--_module-housekeeping); /* Violet - focused service workflow */
+  --_module-rewards:    #B45309;
+  --module-rewards:     var(--_module-rewards);    /* Amber-700 - Chore points (5:1 auf weiß — WCAG AA) */
   --_module-settings:   #6E7781;
   --module-settings:    var(--_module-settings);   /* Grau - Konfiguration */
   --_module-reminders:  #0E7490;
@@ -570,6 +572,7 @@
     --_module-birthdays: #FB7185;
     --_module-budget:      #2DD4BF;
     --_module-housekeeping: #C4B5FD;
+    --_module-rewards:      #FBBF24;
     --_module-settings:    #94A3B8;
     --_module-reminders:   #22D3EE;   /* Cyan-400 */
 
@@ -677,6 +680,7 @@
     --_module-birthdays: #FB7185;
     --_module-budget:      #2DD4BF;   /* Teal-400 */
     --_module-housekeeping: #C4B5FD;
+    --_module-rewards:      #FBBF24;
     --_module-settings:    #94A3B8;
     --_module-reminders:   #22D3EE;   /* Cyan-400 */
 

@@ -25,7 +25,7 @@ const DEFAULT_DATE_FORMAT = 'mdy';
 const VALID_TIME_FORMATS = ['24h', '12h'];
 const DEFAULT_TIME_FORMAT = '24h';
 
-const VALID_WIDGET_IDS = ['tasks', 'calendar', 'weather', 'meals', 'shopping', 'birthdays', 'budget', 'family', 'notes'];
+const VALID_WIDGET_IDS = ['tasks', 'calendar', 'weather', 'meals', 'shopping', 'birthdays', 'budget', 'family', 'notes', 'rewards'];
 const VALID_WIDGET_SIZES = ['1x1', '1x2', '1x3', '1x4', '2x1', '2x2', '2x3', '2x4', '3x1', '3x2', '3x3', '3x4', '4x1', '4x2', '4x3', '4x4'];
 
 // Pro-Benutzer-Aufgaben-Widgets (z.B. "tasks_u3") — vom Frontend dynamisch erzeugt.
@@ -36,9 +36,9 @@ const isUserTaskId = (id) => /^tasks_u\d+$/.test(id);
 const TOGGLEABLE_MODULES = [
   'tasks', 'calendar', 'meals', 'recipes', 'shopping',
   'birthdays', 'notes', 'contacts', 'budget', 'documents',
-  'housekeeping',
+  'housekeeping', 'rewards',
 ];
-const MODULE_ORDER_RE = /^(dashboard|tasks|calendar|meals|recipes|shopping|birthdays|notes|contacts|budget|documents|housekeeping|third-party-[a-z0-9][a-z0-9-]{1,62}[a-z0-9])$/;
+const MODULE_ORDER_RE = /^(dashboard|tasks|calendar|meals|recipes|shopping|birthdays|notes|contacts|budget|documents|housekeeping|rewards|third-party-[a-z0-9][a-z0-9-]{1,62}[a-z0-9])$/;
 
 function defaultWidgetSize(id) {
   if (['tasks', 'calendar'].includes(id)) return '2x2';

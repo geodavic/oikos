@@ -56,6 +56,7 @@
     "kitchen": "Kitchen",
     "search": "Search",
     "housekeeping": "Housekeeping",
+    "rewards": "Rewards",
     "splitExpenses": "Split",
     "kitchenActiveLabel": "Kitchen, {{section}} active",
     "section": {
@@ -120,6 +121,8 @@
     "topExpense": "Top expense",
     "budgetEntries": "Entries",
     "noBudgetData": "No budget data this month.",
+    "chorePoints": "Chore points",
+    "noRewardsData": "No chores completed this week yet.",
     "customize": "Customize",
     "customizeTitle": "Customize widgets",
     "customizeReset": "Reset",
@@ -156,6 +159,8 @@
     "dueTimeLabel": "Time",
     "assignedLabel": "Assigned to",
     "assignedNobody": "- Nobody -",
+    "completedByLabel": "Completed by",
+    "completedByModalTitle": "Who completed this?",
     "statusLabel": "Status",
     "priorityUrgent": "Urgent",
     "priorityHigh": "High",
@@ -176,6 +181,7 @@
     "categoryMisc": "Miscellaneous",
     "overdue": "Overdue",
     "overdueDay": "{{count}}d overdue",
+    "filterOverdue": "Overdue only",
     "dueToday": "Due today",
     "dueTomorrow": "Due tomorrow",
     "groupOverdue": "Overdue",
@@ -231,6 +237,7 @@
     "swipedOpenToast": "Marked as open.",
     "reminderNeedsDueDate": "Set a due date to enable task reminders.",
     "startDateLabel": "Start date",
+    "startDateRecurringHint": "Used as the due date for each occurrence.",
     "startsOn": "Starts {{date}}",
     "showFuture": "Show scheduled",
     "emptyAction": "Create task",
@@ -1538,6 +1545,16 @@
       }
     },
     "setupProfileAction": "Create profile"
+  },
+  "rewards": {
+    "title": "Chore points",
+    "leaderboard": "Leaderboard",
+    "history": "History",
+    "thisWeek": "This week",
+    "thisMonth": "This month",
+    "periodToggleLabel": "Time period",
+    "choresUnit": "chores",
+    "noData": "No chores completed yet."
   },
   "userMultiSelect": {
     "moreUsers": "more",

@@ -8,10 +8,11 @@ import { api } from '/api.js';
 import { renderRRuleFields, bindRRuleEvents, getRRuleValues } from '/rrule-ui.js';
 import { openModal as openSharedModal, closeModal, wireBlurValidation, validateAll, btnSuccess, btnError, promptModal } from '/components/modal.js';
 import { stagger, vibrate } from '/utils/ux.js';
-import { t, formatDate, formatTime, dateInputPlaceholder, formatDateInput, parseDateInput, isDateInputValid, formatTimeInput, parseTimeInput, timeInputPlaceholder } from '/i18n.js';
+import { t, formatDate, formatTime, formatTimeInput, parseTimeInput, timeInputPlaceholder } from '/i18n.js';
 import { esc } from '/utils/html.js';
 import { refresh as refreshReminders } from '/reminders.js';
 import { renderUserMultiSelect, getSelectedUserIds, bindUserMultiSelect, renderAvatarStack } from '/components/user-multi-select.js';
+import { openCompletedByModal, needsCompletionAttribution } from '/utils/task-completion.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -191,7 +192,7 @@ function renderTaskCard(task, opts = {}) {
     : '';
 
   return `
-    <div class="task-card ${isDone ? 'task-card--done' : ''}" data-task-id="${task.id}">
+    <div class="task-card ${isDone ? 'task-card--done' : ''} ${isTaskOverdue(task) ? 'task-card--overdue' : ''}" data-task-id="${task.id}">
       <div class="task-card__main">
         ${showCheckbox ? `
         <input type="checkbox" class="task-bulk-checkbox" data-task-id="${task.id}"
@@ -255,6 +256,18 @@ function effectiveDue(task) {
   return task.due_time
     ? new Date(`${task.due_date}T${task.due_time}`)
     : new Date(`${task.due_date}T23:59:59`);
+}
+
+function isTaskOverdue(task) {
+  if (task.status === 'done') return false;
+  const due = effectiveDue(task);
+  return due ? due < new Date() : false;
+}
+
+// Aufgaben nach dem "Nur überfällige"-Toggle gefiltert (rein clientseitig,
+// da Überfälligkeit vom aktuellen Zeitpunkt abhängt, nicht serverseitig filterbar ist).
+function visibleTasks() {
+  return state.showOverdueOnly ? state.tasks.filter(isTaskOverdue) : state.tasks;
 }
 
 // Einheitliche Sortierung: überfällig zuerst → Datum/Zeit ASC → Prio als Tiebreaker
@@ -367,17 +380,22 @@ function renderModalContent({ task = null, users = [], reminder = null } = {}) {
         </div>
       </div>
 
+      ${renderRRuleFields('task', task?.recurrence_rule)}
+
       <div class="form-group" style="margin-top:var(--space-4)">
-        <label class="label" for="task-start-date">${t('tasks.startDateLabel')}</label>
-        <input class="input js-date-input" type="text" id="task-start-date" name="start_date"
-               value="${formatDateInput(task?.start_date)}" placeholder="${dateInputPlaceholder()}" inputmode="text">
+        <label class="label" for="task-start-date">
+          ${t('tasks.startDateLabel')}<span class="required-marker" id="task-start-date-marker" aria-hidden="true" ${task?.recurrence_rule ? '' : 'hidden'}> *</span>
+        </label>
+        <input class="input" type="date" id="task-start-date" name="start_date"
+               value="${task?.start_date ?? ''}"
+               ${task?.recurrence_rule ? 'required' : ''}>
+        <p class="task-field-hint" id="task-start-date-hint" ${task?.recurrence_rule ? '' : 'hidden'}>${t('tasks.startDateRecurringHint')}</p>
       </div>
 
       <div class="modal-grid modal-grid--2" style="margin-top:var(--space-4)">
-        <div class="form-group">
+        <div class="form-group" id="task-due-date-group" style="${task?.recurrence_rule ? 'display:none' : ''}">
           <label class="label" for="task-due-date">${t('tasks.dueDateLabel')}</label>
-          <input class="input js-date-input" type="text" id="task-due-date" name="due_date"
-                 value="${formatDateInput(task?.due_date)}" placeholder="${dateInputPlaceholder()}" inputmode="text">
+          <input class="input" type="date" id="task-due-date" name="due_date" value="${task?.due_date ?? ''}">
         </div>
         <div class="form-group">
           <label class="label" for="task-due-time">${t('tasks.dueTimeLabel')}</label>
@@ -399,8 +417,6 @@ function renderModalContent({ task = null, users = [], reminder = null } = {}) {
             ).join('')}
           </select>
         </div>` : ''}
-
-      ${renderRRuleFields('task', task?.recurrence_rule)}
 
       ${renderReminderSection(task, reminder)}
 
@@ -428,6 +444,7 @@ let state = {
   groupMode:       'category',   // 'category' | 'due'
   viewMode:        'list',       // 'list' | 'kanban' (resolved at render time)
   showFuture:      false,
+  showOverdueOnly: false,
   expandedTasks:   new Set(),
   dragTaskId:      null,
   filterPanelOpen: false,
@@ -452,15 +469,41 @@ async function loadTasks(container) {
   renderTaskList(container);
 }
 
-async function toggleTaskStatus(id, currentStatus) {
-  const next = currentStatus === 'done' ? 'open' : 'done';
-  await api.patch(`/tasks/${id}/status`, { status: next });
+/** Findet eine (Sub-)Aufgabe im lokalen State anhand ihrer ID. */
+function findTaskInState(id) {
+  const numId = Number(id);
+  for (const task of state.tasks) {
+    if (task.id === numId) return task;
+    const sub = task.subtasks?.find((s) => s.id === numId);
+    if (sub) return sub;
+  }
+  return null;
 }
 
-async function toggleSubtaskStatus(id, currentStatus) {
-  const next = currentStatus === 'done' ? 'open' : 'done';
-  await api.patch(`/tasks/${id}/status`, { status: next });
+/**
+ * Ermittelt, ob beim Abschließen einer Haushaltsaufgabe mit Punkten eine
+ * "Wer hat's erledigt?"-Zuordnung nötig ist, und holt sie ggf. per Modal ein.
+ * @returns {Promise<object|null>} zusätzliche PATCH-Body-Felder, {} wenn keine
+ *   Zuordnung nötig ist, oder null wenn der Nutzer die Zuordnung abgebrochen hat.
+ */
+async function resolveCompletionAttribution(taskId, newStatus, previousStatus) {
+  if (newStatus !== 'done' || previousStatus === 'done') return {};
+  const task = findTaskInState(taskId);
+  if (!needsCompletionAttribution(task)) return {};
+  const completedByIds = await openCompletedByModal(task, state.users);
+  if (completedByIds === null) return null;
+  return { completed_by_ids: completedByIds };
 }
+
+async function toggleTaskStatus(id, currentStatus) {
+  const next = currentStatus === 'done' ? 'open' : 'done';
+  const extra = await resolveCompletionAttribution(id, next, currentStatus);
+  if (extra === null) return false;
+  await api.patch(`/tasks/${id}/status`, { status: next, ...extra });
+  return true;
+}
+
+const toggleSubtaskStatus = toggleTaskStatus;
 
 async function loadTaskForEdit(id) {
   const data = await api.get(`/tasks/${id}`);
@@ -581,12 +624,27 @@ function openTaskModal({ task = null, users = [], reminder = null } = {}, contai
         if (!customFields) return;
         customFields.style.display = offset.value === 'offset_custom' ? '' : 'none';
       });
-      panel.querySelectorAll('.js-date-input').forEach((input) => {
-        input.addEventListener('blur', () => {
-          const parsed = parseDateInput(input.value);
-          if (parsed) input.value = formatDateInput(parsed);
-        });
-      });
+
+      // Wiederkehrende Aufgaben: kein manuelles Fälligkeitsdatum - Startdatum
+      // ist der Anker und wird pro Vorkommen automatisch als Fälligkeitsdatum übernommen.
+      const freqSelect = panel.querySelector('#task-rrule-freq');
+      const dueDateGroup = panel.querySelector('#task-due-date-group');
+      const startDateInput = panel.querySelector('#task-start-date');
+      const startDateMarker = panel.querySelector('#task-start-date-marker');
+      const startDateHint = panel.querySelector('#task-start-date-hint');
+      function syncRecurringDueDateUI() {
+        const isRecurring = !!freqSelect?.value;
+        // .form-group sets display:flex as an author style, which beats the
+        // UA [hidden] default - toggle via inline style instead of .hidden.
+        if (dueDateGroup) dueDateGroup.style.display = isRecurring ? 'none' : '';
+        if (startDateMarker) startDateMarker.hidden = !isRecurring;
+        if (startDateHint) startDateHint.hidden = !isRecurring;
+        if (startDateInput) {
+          if (isRecurring) startDateInput.setAttribute('required', '');
+          else startDateInput.removeAttribute('required');
+        }
+      }
+      freqSelect?.addEventListener('change', syncRecurringDueDateUI);
       panel.querySelectorAll('.js-time-input').forEach((input) => {
         input.addEventListener('blur', () => {
           const parsed = parseTimeInput(input.value);
@@ -624,26 +682,23 @@ async function handleFormSubmit(e, container) {
 
   const originalLabel = taskId ? t('common.save') : t('common.create');
 
-  const startDateRaw = form.start_date?.value || '';
-  const startDate = parseDateInput(startDateRaw);
-  const dueDateRaw = form.due_date?.value || '';
-  const dueDate = parseDateInput(dueDateRaw);
+  // Native <input type="date"> liefert entweder '' oder ein valides YYYY-MM-DD.
+  const startDate = form.start_date?.value || null;
+  const dueDate = form.due_date?.value || null;
   const rrule = getRRuleValues(document, 'task');
   const reminderToggle = form.querySelector('#reminder-toggle');
-  if ((startDateRaw && !isDateInputValid(startDateRaw)) || !isDateInputValid(dueDateRaw) || !rrule.valid_until) {
-    errorEl.textContent = t('calendar.invalidDate');
-    errorEl.hidden = false;
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalLabel;
-    return;
-  }
+
+  // Wiederkehrende Aufgaben haben kein eigenes Fälligkeitsdatum: das Startdatum
+  // ist der Anker, aus dem jedes Vorkommen sein Fälligkeitsdatum bezieht.
+  const effectiveDueDate = rrule.is_recurring ? startDate : dueDate;
+
   const body = {
     title:           form.title.value.trim(),
     description:     form.description.value.trim() || null,
     priority:        form.priority.value,
     category:        form.category.value,
-    start_date:      startDate || null,
-    due_date:        dueDate || null,
+    start_date:      startDate,
+    due_date:        effectiveDueDate,
     assigned_to:     getSelectedUserIds(form, 'task_assigned'),
     is_recurring:    rrule.is_recurring ? 1 : 0,
     recurrence_rule: rrule.recurrence_rule,
@@ -674,8 +729,8 @@ async function handleFormSubmit(e, container) {
     // Erinnerung speichern oder löschen
     if (savedTaskId) {
       if (reminderToggle?.checked) {
-        if (!dueDate) throw new Error(t('tasks.reminderNeedsDueDate'));
-        const dueDateTime = body.due_time ? new Date(`${dueDate}T${body.due_time}`) : new Date(`${dueDate}T23:59:59`);
+        if (!effectiveDueDate) throw new Error(t('tasks.reminderNeedsDueDate'));
+        const dueDateTime = body.due_time ? new Date(`${effectiveDueDate}T${body.due_time}`) : new Date(`${effectiveDueDate}T23:59:59`);
         const offsetPreset = form.querySelector('#reminder-offset')?.value || 'offset_none';
         if (offsetPreset === 'offset_none') throw new Error(t('tasks.reminderNeedsDueDate'));
         let offsetMs = 0;
@@ -804,7 +859,7 @@ function renderKanban(container) {
   const cols = KANBAN_COLS();
   const grouped = {};
   for (const col of cols) grouped[col.status] = [];
-  for (const t of state.tasks) {
+  for (const t of visibleTasks()) {
     if (grouped[t.status]) grouped[t.status].push(t);
     else grouped['open'].push(t);
   }
@@ -891,12 +946,15 @@ function wireKanbanDrag(container) {
     const task      = state.tasks.find((t) => String(t.id) === String(taskId));
     if (!task || task.status === newStatus) return;
 
+    const extra = await resolveCompletionAttribution(taskId, newStatus, task.status);
+    if (extra === null) return; // Nutzer hat die Zuordnung abgebrochen
+
     // Optimistisches Update
     task.status = newStatus;
     renderKanban(container);
 
     try {
-      await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
+      await api.patch(`/tasks/${taskId}/status`, { status: newStatus, ...extra });
       await loadTasks(container); // sync
     } catch (err) {
       window.oikos.showToast(err.message, 'danger');
@@ -915,10 +973,14 @@ function wireKanbanDrag(container) {
       const newStatus = statusBtn.dataset.nextStatus;
       const task      = state.tasks.find((t) => String(t.id) === String(taskId));
       if (!task) return;
+
+      const extra = await resolveCompletionAttribution(taskId, newStatus, task.status);
+      if (extra === null) return; // Nutzer hat die Zuordnung abgebrochen
+
       task.status = newStatus;
       renderKanban(container);
       try {
-        await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
+        await api.patch(`/tasks/${taskId}/status`, { status: newStatus, ...extra });
         await loadTasks(container);
       } catch (err) {
         window.oikos.showToast(err.message, 'danger');
@@ -1039,10 +1101,13 @@ function wireKanbanTouch(container) {
     const newStatus = zone.dataset.dropZone;
     if (task.status === newStatus) return;
 
+    const extra = await resolveCompletionAttribution(tid, newStatus, task.status);
+    if (extra === null) return; // Nutzer hat die Zuordnung abgebrochen
+
     task.status = newStatus;
     renderKanban(container);
     try {
-      await api.patch(`/tasks/${tid}/status`, { status: newStatus });
+      await api.patch(`/tasks/${tid}/status`, { status: newStatus, ...extra });
       await loadTasks(container);
     } catch (err) {
       window.oikos.showToast(err.message, 'danger');
@@ -1065,7 +1130,7 @@ function renderTaskList(container) {
   const listEl = container.querySelector('#task-list');
   if (!listEl) return;
   listEl.replaceChildren();
-  listEl.insertAdjacentHTML('beforeend', renderTaskGroups(state.tasks, state.groupMode));
+  listEl.insertAdjacentHTML('beforeend', renderTaskGroups(visibleTasks(), state.groupMode));
   if (window.lucide) window.lucide.createIcons();
   stagger(listEl.querySelectorAll('.swipe-row, .kanban-card'));
   updateOverdueBadge();
@@ -1141,6 +1206,20 @@ function renderFilters(container) {
     futureChip.appendChild(rm);
   }
   bar.appendChild(futureChip);
+
+  // "Nur überfällige" Toggle-Chip
+  const overdueChip = document.createElement('span');
+  overdueChip.className = `filter-chip${state.showOverdueOnly ? ' filter-chip--active' : ''}`;
+  overdueChip.id = 'filter-show-overdue';
+  overdueChip.textContent = t('tasks.filterOverdue');
+  if (state.showOverdueOnly) {
+    const rm = document.createElement('span');
+    rm.className = 'filter-chip__remove';
+    rm.setAttribute('aria-hidden', 'true');
+    rm.textContent = '×';
+    overdueChip.appendChild(rm);
+  }
+  bar.appendChild(overdueChip);
 
   const toggleBtn = document.createElement('button');
   toggleBtn.id = 'filter-toggle-btn';
@@ -1511,6 +1590,13 @@ function wireFilterChips(container) {
     await loadTasks(container);
   });
 
+  // "Nur überfällige" Toggle - rein clientseitig, kein Server-Refetch nötig
+  container.querySelector('#filter-show-overdue')?.addEventListener('click', () => {
+    state.showOverdueOnly = !state.showOverdueOnly;
+    renderFilters(container);
+    renderTaskList(container);
+  });
+
   // Chip-Klicks (in Bar + Panel)
   container.querySelectorAll('[data-filter]').forEach((chip) => {
     chip.addEventListener('click', async () => {
@@ -1697,11 +1783,20 @@ function wireTaskList(container) {
 
     if (action === 'toggle-status') {
       const status = target.dataset.status;
+      const next = status === 'done' ? 'open' : 'done';
+      const task = findTaskInState(id);
+      const needsAttribution = next === 'done' && needsCompletionAttribution(task);
+
       vibrate(15);
-      target.classList.toggle('task-status-btn--done', status !== 'done');
-      target.closest('.task-card')?.classList.toggle('task-card--done', status !== 'done');
+      // Optimistisches Update nur, wenn keine Zuordnungs-Abfrage dazwischenkommt -
+      // sonst würde der Button kurz umspringen und bei Abbruch wieder zurückspringen.
+      if (!needsAttribution) {
+        target.classList.toggle('task-status-btn--done', status !== 'done');
+        target.closest('.task-card')?.classList.toggle('task-card--done', status !== 'done');
+      }
       try {
-        await toggleTaskStatus(id, status);
+        const ok = await toggleTaskStatus(id, status);
+        if (!ok) return; // Nutzer hat die Zuordnung abgebrochen
         await loadTasks(container);
       } catch (err) {
         window.oikos.showToast(err.message, 'danger');
@@ -1716,7 +1811,8 @@ function wireTaskList(container) {
 
     if (action === 'toggle-subtask') {
       try {
-        await toggleSubtaskStatus(id, target.dataset.status);
+        const ok = await toggleSubtaskStatus(id, target.dataset.status);
+        if (!ok) return;
         await loadTasks(container);
       } catch (err) {
         window.oikos.showToast(err.message, 'danger');

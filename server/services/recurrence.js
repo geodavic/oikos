@@ -111,4 +111,82 @@ function nextOccurrence(baseDateStr, rrule) {
   return next.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-export { parseRRule, nextOccurrence };
+/**
+ * Addiert genau ein Wiederholungsintervall auf ein Datum (ohne BYDAY-Anker-Logik).
+ * Dient als "Mindestabstand"-Maß für nextOccurrenceAfterCompletion - z.B. WEEKLY
+ * interval=1 → +7 Tage, unabhängig vom BYDAY-Muster.
+ * @param {string} dateStr - ISO-Datums-String (YYYY-MM-DD)
+ * @param {string} rrule   - RRULE-String
+ * @returns {string} - Datum + ein Intervall, als YYYY-MM-DD
+ */
+function addOneInterval(dateStr, rrule) {
+  const parsed = parseRRule(rrule);
+  const d = new Date(dateStr + 'T00:00:00Z');
+  if (!parsed || isNaN(d.getTime())) return dateStr;
+
+  const { freq, interval } = parsed;
+  if (freq === 'DAILY') d.setUTCDate(d.getUTCDate() + interval);
+  else if (freq === 'WEEKLY') d.setUTCDate(d.getUTCDate() + 7 * interval);
+  else if (freq === 'MONTHLY') d.setUTCMonth(d.getUTCMonth() + interval);
+  else if (freq === 'YEARLY') d.setUTCFullYear(d.getUTCFullYear() + interval);
+
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Berechnet das nächste Fälligkeitsdatum nach Abschluss einer (ggf. überfälligen)
+ * Aufgabe. Bei rechtzeitigem oder vorzeitigem Abschluss (completedAtStr <= dueDateStr)
+ * entspricht das Ergebnis exakt nextOccurrence() - unverändertes Verhalten.
+ * Bei verspätetem Abschluss wird so lange im Muster vorgerückt, bis mindestens ein
+ * volles Intervall Abstand zum tatsächlichen Abschlussdatum besteht - so entsteht
+ * nach dem Nachholen einer überfälligen Aufgabe nicht sofort die nächste Fälligkeit.
+ * @param {string} dueDateStr    - ursprüngliches Fälligkeitsdatum (Anker der Serie)
+ * @param {string} rrule         - RRULE-String
+ * @param {string} completedAtStr - tatsächliches Abschlussdatum (YYYY-MM-DD)
+ * @returns {string|null}
+ */
+function nextOccurrenceAfterCompletion(dueDateStr, rrule, completedAtStr) {
+  const naive = nextOccurrence(dueDateStr, rrule);
+  if (!naive || !completedAtStr || completedAtStr <= dueDateStr) return naive;
+
+  const minDate = addOneInterval(completedAtStr, rrule);
+  let candidate = naive;
+  let iterations = 0;
+  while (candidate && candidate < minDate && iterations < 1000) {
+    candidate = nextOccurrence(candidate, rrule);
+    iterations++;
+  }
+  return candidate;
+}
+
+/**
+ * Expandiert eine Wiederholungsregel zu allen Vorkommen innerhalb eines Zeitfensters.
+ * Gleiches Vorgehen wie expandRRULE in ics-parser.js (wiederholtes Vorrücken via
+ * nextOccurrence, MAX_ITER-Schutz), aber ohne ICS-spezifische Zeit-/Dauer-Logik -
+ * dient hier der Projektion künftiger Aufgaben-Vorkommen (noch nicht erzeugte Zeilen).
+ * @param {string} anchorDateStr - Ankerdatum der Serie (z.B. tasks.due_date)
+ * @param {string} rrule         - RRULE-String
+ * @param {string} windowStart   - Fensterstart, inklusiv (YYYY-MM-DD)
+ * @param {string} windowEnd     - Fensterende, exklusiv (YYYY-MM-DD)
+ * @returns {string[]} - Vorkommen im Fenster als YYYY-MM-DD, aufsteigend sortiert
+ */
+function expandOccurrences(anchorDateStr, rrule, windowStart, windowEnd) {
+  if (!anchorDateStr || !parseRRule(rrule)) return [];
+
+  const results = [];
+  let current = anchorDateStr;
+  let iterations = 0;
+  const MAX_ITER = 1500;
+
+  while (current && current < windowEnd && iterations < MAX_ITER) {
+    iterations++;
+    if (current >= windowStart) results.push(current);
+    const next = nextOccurrence(current, rrule);
+    if (!next || next <= current) break;
+    current = next;
+  }
+
+  return results;
+}
+
+export { parseRRule, nextOccurrence, addOneInterval, nextOccurrenceAfterCompletion, expandOccurrences };

@@ -337,6 +337,15 @@ function buildPaths() {
     '/api/v1/tasks/{id}/status': {
       patch: op({ summary: 'Update task status', tag: 'Tasks', params: [idParam()], stateChanging: true, requestBody: jsonBody(null) }),
     },
+    '/api/v1/rewards/leaderboard': {
+      get: op({ summary: 'Get chore points leaderboard', tag: 'Rewards' }),
+    },
+    '/api/v1/rewards/history': {
+      get: op({ summary: 'Get chore points history (family-wide)', tag: 'Rewards' }),
+    },
+    '/api/v1/rewards/history/{userId}': {
+      get: op({ summary: 'Get chore points history for one user', tag: 'Rewards', params: [idParam('userId', 'User ID')] }),
+    },
     '/api/v1/shopping': {
       get: op({ summary: 'List shopping lists', tag: 'Shopping' }),
       post: op({ summary: 'Create shopping list', tag: 'Shopping', stateChanging: true, requestBody: jsonBody(null) }),
@@ -711,6 +720,7 @@ function buildOpenApiSpec(req, appVersion) {
       { name: 'Family' },
       { name: 'Dashboard' },
       { name: 'Tasks' },
+      { name: 'Rewards' },
       { name: 'Shopping' },
       { name: 'Meals' },
       { name: 'Recipes' },

@@ -30,6 +30,7 @@ const ROUTES = [
   { path: '/budget',   page: '/pages/budget.js',    requiresAuth: true, module: 'budget'    },
   { path: '/documents', page: '/pages/documents.js', requiresAuth: true, module: 'documents' },
   { path: '/housekeeping', page: '/pages/housekeeping.js', requiresAuth: true, module: 'housekeeping' },
+  { path: '/rewards',  page: '/pages/rewards.js',   requiresAuth: true, module: 'rewards'   },
   { path: '/settings', page: '/pages/settings.js',  requiresAuth: true, module: 'settings'  },
 ];
 
@@ -196,6 +197,7 @@ function routeTitle(path) {
     '/budget': t('nav.budget'),
     '/documents': t('nav.documents'),
     '/housekeeping': t('nav.housekeeping'),
+    '/rewards': t('nav.rewards'),
     '/settings': t('nav.settings'),
   };
   return map[path] || _thirdPartyModules.find((module) => module.route?.path === path)?.menu?.label || getAppName();
@@ -1281,6 +1283,7 @@ function navItems() {
     { path: '/budget',    label: t('nav.budget'),    icon: 'wallet',           module: 'budget'    },
     { path: '/documents', label: t('nav.documents'), icon: 'folder-lock',      module: 'documents' },
     { path: '/housekeeping', label: t('nav.housekeeping'), icon: 'paintbrush', module: 'housekeeping' },
+    { path: '/rewards',   label: t('nav.rewards'),   icon: 'trophy',           module: 'rewards'   },
     { path: '/settings',  label: t('nav.settings'),  icon: 'settings',         module: 'settings'  },
     // Kitchen-Gruppe: via Küche-Nav-Button (Bottom-Nav + Sidebar) + kitchen-tabs-bar erreichbar
     { path: '/meals',     label: t('nav.meals'),     icon: 'utensils',      module: 'meals',    kitchenGroup: true },

@@ -53,12 +53,12 @@ test('date inputs: accept hyphen separators for YMD dates', () => {
   assert.equal(parseDateInput('2026.05.06'), '2026-05-06');
 });
 
-test('task create date fields use a keyboard that allows separators', () => {
+test('task create date fields use the native date picker', () => {
   const tasksSource = readFileSync(new URL('./public/pages/tasks.js', import.meta.url), 'utf8');
   const rruleSource = readFileSync(new URL('./public/rrule-ui.js', import.meta.url), 'utf8');
-  assert.match(tasksSource, /name="start_date"[\s\S]*?inputmode="text"/);
-  assert.match(tasksSource, /name="due_date"[\s\S]*?inputmode="text"/);
-  assert.match(rruleSource, /id="\$\{prefix\}-rrule-until"[\s\S]*?inputmode="text"/);
+  assert.match(tasksSource, /type="date" id="task-start-date" name="start_date"/);
+  assert.match(tasksSource, /type="date" id="task-due-date" name="due_date"/);
+  assert.match(rruleSource, /type="date" id="\$\{prefix\}-rrule-until"/);
 });
 
 test('stagger: tut nichts bei prefers-reduced-motion', () => {

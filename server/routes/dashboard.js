@@ -238,6 +238,27 @@ router.get('/', (req, res) => {
     };
   }
 
+  // Chore-Erledigungen: Top 3 der aktuellen Woche (Montag-Start)
+  try {
+    const dayOfWeek = now.getUTCDay();
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const weekStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diffToMonday))
+      .toISOString().slice(0, 10);
+
+    result.rewards = d.prepare(`
+      SELECT u.id, u.display_name, u.avatar_color, u.avatar_data,
+             COUNT(l.id) AS completions
+      FROM users u
+      LEFT JOIN chore_completions_log l ON l.user_id = u.id AND l.completed_at >= ?
+      GROUP BY u.id
+      ORDER BY completions DESC
+      LIMIT 3
+    `).all(weekStart);
+  } catch (err) {
+    log.error('rewards error:', err.message);
+    result.rewards = [];
+  }
+
   res.json(result);
   } catch (err) {
     log.error('Critical error:', err.message);
