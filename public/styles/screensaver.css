@@ -43,3 +43,55 @@
 @media (prefers-reduced-motion: reduce) {
   .photo-screensaver img { transition: none; }
 }
+
+/* Clock fallback (shown when no Immich photos are available). Reuses the
+   .photo-screensaver black surface; centered, no fixed-brightness photo. */
+.photo-screensaver--clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: none;
+}
+
+.photo-screensaver__clock {
+  text-align: center;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.photo-screensaver__time {
+  font-size: clamp(5rem, 22vw, 16rem);
+  font-weight: 200;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.photo-screensaver__sub {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.4em;
+  margin-top: 0.15em;
+}
+
+.photo-screensaver__seconds {
+  font-size: clamp(1.5rem, 5vw, 3.5rem);
+  font-weight: 300;
+  color: rgb(255 255 255 / 35%);
+}
+
+.photo-screensaver__period {
+  font-size: clamp(1rem, 3vw, 2rem);
+  font-weight: 400;
+  color: rgb(255 255 255 / 45%);
+  letter-spacing: 0.12em;
+}
+
+.photo-screensaver__date {
+  font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+  font-weight: 300;
+  color: rgb(255 255 255 / 25%);
+  letter-spacing: 0.06em;
+  margin-top: 1.8em;
+}

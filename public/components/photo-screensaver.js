@@ -6,6 +6,7 @@ const SLIDE_MS = 20_000;
 
 let idleTimer;
 let slideTimer;
+let clockTimer;
 let overlay;
 let run = 0;
 
@@ -13,6 +14,8 @@ function stop() {
   run += 1;
   clearInterval(slideTimer);
   slideTimer = undefined;
+  clearInterval(clockTimer);
+  clockTimer = undefined;
   overlay?.remove();
   overlay = undefined;
 }
@@ -45,7 +48,9 @@ async function start() {
     const payload = await api.get('/screensaver/photos');
     if (currentRun !== run) return false;
     const photos = payload?.data?.photos || [];
-    if (!payload?.data?.enabled || !photos.length) return false;
+    // No Immich photos available (module off or empty album) → fall back to a
+    // dependency-free clock, so idle wall tablets/kiosks still show something.
+    if (!payload?.data?.enabled || !photos.length) return startClock(currentRun);
 
     overlay = document.createElement('div');
     overlay.className = 'photo-screensaver';
@@ -75,6 +80,52 @@ async function start() {
     // Screensaver is optional; retry after the next period of inactivity.
     return false;
   }
+}
+
+/**
+ * Fallback screensaver: a 12-hour digital clock. Shown when the photo
+ * screensaver has nothing to display (Immich not configured / empty album).
+ * Reuses the same idle timer and activity listeners as the photo mode, so
+ * there is only ever one screensaver system running.
+ */
+function startClock(currentRun) {
+  if (currentRun !== run) return false;
+  overlay = document.createElement('div');
+  overlay.className = 'photo-screensaver photo-screensaver--clock';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = `
+    <div class="photo-screensaver__clock">
+      <div class="photo-screensaver__time"></div>
+      <div class="photo-screensaver__sub">
+        <span class="photo-screensaver__seconds"></span>
+        <span class="photo-screensaver__period"></span>
+      </div>
+      <div class="photo-screensaver__date"></div>
+    </div>
+  `;
+  document.body.append(overlay);
+
+  const timeEl = overlay.querySelector('.photo-screensaver__time');
+  const secondsEl = overlay.querySelector('.photo-screensaver__seconds');
+  const periodEl = overlay.querySelector('.photo-screensaver__period');
+  const dateEl = overlay.querySelector('.photo-screensaver__date');
+  const tick = () => {
+    if (!overlay) return;
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    periodEl.textContent = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    timeEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}`;
+    secondsEl.textContent = `:${String(seconds).padStart(2, '0')}`;
+    dateEl.textContent = now.toLocaleDateString(undefined, {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+  };
+  tick();
+  clockTimer = setInterval(tick, 1000);
+  return true;
 }
 
 /** Opens the real screensaver immediately for the admin configuration preview. */
