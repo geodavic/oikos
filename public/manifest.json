@@ -1,7 +1,7 @@
 {
-  "name": "Yuvomi Familienplaner",
-  "short_name": "Yuvomi",
-  "description": "Selbstgehosteter Familienplaner",
+  "name": "Duck Board",
+  "short_name": "Duck Board",
+  "description": "Self-hosted family planner",
   "id": "/",
   "start_url": "/",
   "scope": "/",

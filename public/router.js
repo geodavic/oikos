@@ -432,7 +432,7 @@ const NAV_SECTION_LABEL_KEYS = Object.freeze({
   [NAV_SECTION.customModules]: 'nav.sectionCustomModules',
 });
 
-const DEFAULT_APP_NAME = 'Yuvomi';
+const DEFAULT_APP_NAME = 'Duck Board';
 const APP_NAME_STORAGE_KEY = 'yuvomi-app-name';
 const APP_VERSION_STORAGE_KEY = 'yuvomi-app-version';
 

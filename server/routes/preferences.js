@@ -24,7 +24,7 @@ const DEFAULT_MEAL_TYPES = VALID_MEAL_TYPES.join(',');
 
 const VALID_CURRENCIES = ['AED', 'ARS', 'AUD', 'BBD', 'BOB', 'BRL', 'BSD', 'BYN', 'BZD', 'CAD', 'CHF', 'CLP', 'CNY', 'COP', 'CRC', 'CUP', 'CZK', 'DKK', 'DOP', 'EUR', 'GBP', 'GTQ', 'GYD', 'HNL', 'HTG', 'HUF', 'IDR', 'INR', 'IRR', 'JMD', 'JPY', 'KRW', 'KZT', 'MXN', 'MYR', 'NIO', 'NOK', 'NZD', 'PAB', 'PEN', 'PHP', 'PLN', 'PYG', 'RUB', 'SAR', 'SEK', 'SRD', 'TRY', 'TTD', 'UAH', 'USD', 'UYU', 'VES', 'XCD', 'ZAR'];
 const DEFAULT_CURRENCY = 'EUR';
-const DEFAULT_APP_NAME = 'Yuvomi';
+const DEFAULT_APP_NAME = 'Duck Board';
 
 const VALID_DATE_FORMATS = ['mdy', 'dmy', 'ymd', 'mdy_dot', 'dmy_dot', 'dmy_slash', 'ymd_dot', 'ymd_slash'];
 // Default an die übrigen europäischen Defaults (EUR, 24h) und den Client-i18n-

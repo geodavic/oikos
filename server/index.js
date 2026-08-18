@@ -77,7 +77,7 @@ const logYuvomi = createLogger('Yuvomi');
 const { version: APP_VERSION } = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
 );
-const DEFAULT_APP_NAME = 'Yuvomi';
+const DEFAULT_APP_NAME = 'Duck Board';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -290,9 +290,9 @@ app.get('/manifest.webmanifest', apiLimiter, (req, res) => {
   res.type('application/manifest+json');
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.json({
-    name: `${appName} Familienplaner`,
+    name: appName,
     short_name: appName,
-    description: 'Selbstgehosteter Familienplaner',
+    description: 'Self-hosted family planner',
     id: '/',
     start_url: '/',
     scope: '/',
