@@ -38,7 +38,10 @@ const REMINDER_OFFSETS = () => [
 ];
 
 function renderBirthdayReminderSection(birthday = null) {
-  const currentOffset = birthday?.reminder_offset ?? '1440';
+  // New birthdays default to "no notification" ('') so they don't create a
+  // calendar event unless the user opts in. Existing birthdays keep their
+  // stored offset. (Fork preference: keep birthdays off the calendar by default.)
+  const currentOffset = birthday?.reminder_offset ?? '';
   const customAmount = birthday?.reminder_custom_amount || 1;
   const customUnit = birthday?.reminder_custom_unit || 'days';
   return `
