@@ -1,16 +1,16 @@
 services:
-  yuvomi:
-    image: ghcr.io/ulsklyc/yuvomi:latest
-    build: .                          # optional: use --build to build locally instead
-    container_name: yuvomi
+  duckboard:
+    image: duckboard:latest
+    build: .                          # this fork is not published to a registry; build locally with --build
+    container_name: duckboard
     restart: unless-stopped
     ports:
-      # Host-Port aus .env (OIKOS_HTTP_PORT); App im Container bleibt auf 3000.
-      - "0.0.0.0:${OIKOS_HTTP_PORT:-3000}:3000"
+      # Host port from .env (DUCKBOARD_HTTP_PORT); the app in the container stays on 3000.
+      - "0.0.0.0:${DUCKBOARD_HTTP_PORT:-3000}:3000"
     volumes:
       - ${DATA_DIR:-./data}:/data
       - ${BACKUP_DIR:-./backups}:/backups
-      # Drop Yuvomi modules into ./modules, or set MODULES_DIR=/path/to/modules.
+      # Drop Duck Board modules into ./modules, or set MODULES_DIR=/path/to/modules.
       - ${MODULES_DIR:-./modules}:/app/modules
       # Optional local documents folder. BOTH ends come from the .env: the app
       # writes to DOCUMENT_STORAGE_LOCAL_PATH, so mounting at a fixed /documents
@@ -20,7 +20,7 @@ services:
     # Bewusst die Kurzform, nicht `path:`/`required:` (Issue #765): die Langform
     # gibt es erst ab Compose v2.24, und Synology DSM, QNAP und ältere Distros
     # liefern älter - dort scheitert schon das Einlesen mit
-    # "services.yuvomi.env_file.0 must be a string", also noch vor dem ersten
+    # "services.duckboard.env_file.0 must be a string", also noch vor dem ersten
     # Start. Die Langform stand hier für Git-/GitOps-Stacks ohne .env (#698);
     # dieser Weg geht seitdem über docs/docker-compose.portainer.yml, das jede
     # Variable einzeln aufführt. Sie hier zu behalten kaufte nichts: ohne .env
@@ -30,7 +30,7 @@ services:
       - .env
     environment:
       - NODE_ENV=production
-      - DB_PATH=${DB_PATH:-/data/yuvomi.db}
+      - DB_PATH=${DB_PATH:-/data/duckboard.db}
       - BACKUP_DIR=/backups
       # Local document storage (optional): set to true to store uploaded documents on the mounted /documents folder.
       - DOCUMENT_STORAGE_LOCAL_ENABLED=${DOCUMENT_STORAGE_LOCAL_ENABLED:-false}
@@ -47,3 +47,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
