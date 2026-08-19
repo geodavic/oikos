@@ -45,6 +45,33 @@ export function loadEventExceptions(d, eventIds) {
 // --------------------------------------------------------
 
 /**
+ * Endzeitpunkt einer Instanz, der den festen UTC-Offset des Starts behaelt.
+ *
+ * Starts mit explizitem Offset ('2026-08-12T19:00:00-05:00', so liefert Google
+ * getimte Events) wurden vorher ueber die lokalen Date-Getter serialisiert - das
+ * Ergebnis trug die Wanduhrzeit der CONTAINER-Zone und gar keinen Offset mehr.
+ * Bei TZ=UTC wurde aus 19:00-21:00 (-05:00) also '…T19:00:00-05:00' bis
+ * '…T02:00': im Browser 19:00 bis 02:00 des Folgetags. Und weil Start- und
+ * Enddatum dadurch auseinanderfallen, stufte die UI den Termin zusaetzlich als
+ * mehrtaegig und damit als ganztaegig ein (isAllDayLike).
+ *
+ * @param {string} startIso    Instanz-Start inkl. Offset
+ * @param {number} durationMs  Dauer der Serie
+ * @param {string} offset      '+HH:MM' / '-HH:MM' aus dem Start
+ * @returns {string}           'YYYY-MM-DDTHH:mm:ss±HH:MM'
+ */
+function endWithFixedOffset(startIso, durationMs, offset) {
+  const sign      = offset[0] === '-' ? -1 : 1;
+  const offsetMin = sign * (parseInt(offset.slice(1, 3), 10) * 60 + parseInt(offset.slice(-2), 10));
+  // In den Offset-Rahmen schieben, dann ueber die UTC-Getter formatieren: so
+  // steht die Wanduhrzeit des Ziel-Offsets da, unabhaengig von der Server-Zone.
+  const d = new Date(new Date(startIso).getTime() + durationMs + offsetMin * 60000);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`
+       + `T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}${offset}`;
+}
+
+/**
  * @param {object[]} events  Rohe DB-Events (können recurrence_rule haben)
  * @param {string}   from    YYYY-MM-DD
  * @param {string}   to      YYYY-MM-DD
@@ -122,10 +149,18 @@ export function expandRecurringEvents(events, from, to, exceptionsByEvent = null
             d.setDate(d.getDate() + durationDays);
             newEnd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           } else {
-            const endDate = new Date(new Date(newStart).getTime() + durationMs);
-            if (timeSuffix.includes('Z')) {
-              newEnd = endDate.toISOString().replace('.000Z', 'Z');
+            // Der Offset-Zweig muss VOR dem lokalen stehen: ein Start mit
+            // '-05:00' darf nicht in der Container-Zone landen (siehe
+            // endWithFixedOffset).
+            const offsetMatch = newStart.match(/([+-]\d{2}):?(\d{2})$/);
+            if (newStart.endsWith('Z')) {
+              newEnd = new Date(new Date(newStart).getTime() + durationMs).toISOString().replace('.000Z', 'Z');
+            } else if (offsetMatch) {
+              newEnd = endWithFixedOffset(newStart, durationMs, `${offsetMatch[1]}:${offsetMatch[2]}`);
             } else {
+              // Naiver Start ohne Zone: Parsen und Formatieren passieren im
+              // selben lokalen Rahmen, das bleibt stimmig.
+              const endDate = new Date(new Date(newStart).getTime() + durationMs);
               const p = n => String(n).padStart(2, '0');
               newEnd = `${endDate.getFullYear()}-${p(endDate.getMonth() + 1)}-${p(endDate.getDate())}T${p(endDate.getHours())}:${p(endDate.getMinutes())}`;
             }

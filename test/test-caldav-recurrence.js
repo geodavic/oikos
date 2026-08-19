@@ -202,5 +202,48 @@ test('TZID-Serie: Instanz bleibt am korrekten Wochentag (Mi, Tag-24-Master)', ()
   assert(inst[0].start_datetime.slice(0, 10) === '2025-12-10', `Datum: ${inst[0].start_datetime}`);
 });
 
+// --- Serien mit festem UTC-Offset im DTSTART ---
+// Google liefert getimte Events als '…T19:00:00-05:00'. Die Instanz-Endzeit wurde
+// frueher ueber die lokalen Date-Getter serialisiert und verlor dabei den Offset:
+// bei TZ=UTC wurde aus 19:00-21:00 ein '…T19:00:00-05:00' bis '…T02:00' des
+// Folgetags - im Browser 19:00 bis 02:00, und wegen der Datumsgrenze zusaetzlich
+// als mehrtaegig/ganztaegig einsortiert.
+const OFFSET_SERIES = {
+  id: 1,
+  start_datetime: '2026-08-12T19:00:00-05:00',
+  end_datetime:   '2026-08-12T21:00:00-05:00',
+  all_day: 0,
+  recurrence_rule: 'RRULE:FREQ=WEEKLY',
+};
+
+test('Offset-Serie: Instanz-Ende behaelt Offset und Uhrzeit des Masters', () => {
+  const inst = expandRecurringEvents([OFFSET_SERIES], '2026-08-19', '2026-08-19');
+  assert(inst.length === 1, `1 Instanz erwartet, bekam ${inst.length}`);
+  assert(inst[0].start_datetime === '2026-08-19T19:00:00-05:00', `Start: ${inst[0].start_datetime}`);
+  assert(inst[0].end_datetime === '2026-08-19T21:00:00-05:00', `Ende: ${inst[0].end_datetime}`);
+});
+
+test('Offset-Serie: Instanz bleibt eintaegig (nicht ganztags-artig)', () => {
+  const [inst] = expandRecurringEvents([OFFSET_SERIES], '2026-08-19', '2026-08-19');
+  assert(inst.end_datetime.slice(0, 10) === inst.start_datetime.slice(0, 10),
+    `Start- und Enddatum muessen gleich sein: ${inst.start_datetime} / ${inst.end_datetime}`);
+});
+
+test('Offset-Serie: echter Mitternachts-Ueberlauf bleibt erhalten', () => {
+  const late = { ...OFFSET_SERIES, start_datetime: '2026-08-12T22:00:00-05:00', end_datetime: '2026-08-13T01:00:00-05:00' };
+  const [inst] = expandRecurringEvents([late], '2026-08-19', '2026-08-19');
+  assert(inst.end_datetime === '2026-08-20T01:00:00-05:00', `Ende: ${inst.end_datetime}`);
+});
+
+test('UTC-Serie (…Z) und zonenlose Serie bleiben unveraendert', () => {
+  const utc = { ...OFFSET_SERIES, start_datetime: '2026-08-12T19:00:00Z', end_datetime: '2026-08-12T21:00:00Z' };
+  const [u] = expandRecurringEvents([utc], '2026-08-19', '2026-08-19');
+  assert(u.end_datetime === '2026-08-19T21:00:00Z', `UTC-Ende: ${u.end_datetime}`);
+
+  const naive = { ...OFFSET_SERIES, start_datetime: '2026-08-12T19:00:00', end_datetime: '2026-08-12T21:00:00' };
+  const [n] = expandRecurringEvents([naive], '2026-08-19', '2026-08-19');
+  assert(n.end_datetime.startsWith('2026-08-19T21:00'), `Zonenloses Ende: ${n.end_datetime}`);
+});
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);
