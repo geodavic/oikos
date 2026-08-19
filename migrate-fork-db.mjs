@@ -18,14 +18,37 @@ import Database from 'better-sqlite3-multiple-ciphers';
 
 const OLD = process.env.OLD_DB;
 const NEW = process.env.NEW_DB;
+// The new DB is encrypted iff DB_ENCRYPTION_KEY is set (same variable the app
+// uses). The old fork DB is plaintext unless you pass OLD_DB_ENCRYPTION_KEY.
+const NEW_KEY = process.env.DB_ENCRYPTION_KEY;
+const OLD_KEY = process.env.OLD_DB_ENCRYPTION_KEY;
 if (!OLD || !NEW) {
   console.error('Set OLD_DB (old fork DB copy) and NEW_DB (fresh v2.21.1 DB).');
   process.exit(1);
 }
 
+const hexKey = (k) => Buffer.from(k, 'utf8').toString('hex');
+
 const db = new Database(NEW);
+// Open the (possibly encrypted) new DB exactly like server/db.js does.
+if (NEW_KEY) {
+  db.pragma("cipher = 'sqlcipher'");
+  db.pragma(`key="x'${hexKey(NEW_KEY)}'"`);
+}
+try {
+  db.prepare('SELECT COUNT(*) FROM sqlite_master').get();
+} catch (e) {
+  console.error(
+    'Cannot read NEW_DB. If it is encrypted, pass DB_ENCRYPTION_KEY (e.g. --env-file .env); ' +
+    `if it is plaintext, do not pass a key. Underlying error: ${e.message}`
+  );
+  process.exit(1);
+}
 db.pragma('foreign_keys = OFF');
-db.exec(`ATTACH DATABASE '${OLD.replace(/'/g, "''")}' AS old;`);
+// Attach the old DB: empty key = plaintext (the v0.55-era build never encrypted);
+// pass OLD_DB_ENCRYPTION_KEY only if your old DB really is SQLCipher-encrypted.
+const attachKey = OLD_KEY ? `x'${hexKey(OLD_KEY)}'` : '';
+db.exec(`ATTACH DATABASE '${OLD.replace(/'/g, "''")}' AS old KEY '${attachKey}';`);
 
 const targetUsers = db.prepare('SELECT COUNT(*) AS c FROM main.users').get().c;
 if (targetUsers > 0) {
