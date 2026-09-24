@@ -117,7 +117,9 @@ const router = express.Router();
  *                                      // 48h-Filter - hier stand er einmal, die Sortier-Umstellung
  *                                      // hat ihn ersetzt, dieser Satz blieb bis 2026-08-21 stehen.
  *   tasksByAssignee: { user_id, open_count, overdue_count, tasks }[],
- *                                      // Dasselbe Set, nach Zuständigkeit partitioniert (max. 5 je
+ *                                      // Only tasks due today or overdue (undated
+ *                                      // excluded); otherwise the same set as urgentTasks.
+ *                                      // Nach Zuständigkeit partitioniert (max. 5 je
  *                                      // Eimer). user_id === null ist der Eimer „nicht zugewiesen".
  *                                      // Eine Aufgabe mit mehreren Zuständigen steht in MEHREREN
  *                                      // Eimern - das ist gewollt. Wer nichts Offenes hat, hat gar
@@ -230,6 +232,10 @@ router.get('/', (req, res) => {
    * davor - Filter und Sortierung stehen deshalb hier Zeile für Zeile so wie
    * dort. Wer eines von beiden ändert, ändert beides.
    *
+   * One deliberate exception: this query also drops everything that is not
+   * due today or overdue (see the WHERE clause). The tiles are a "what's on now"
+   * view, and the cockpit fed by `urgentTasks` is not affected.
+   *
    * LEFT JOIN, NICHT JOIN. Eine Aufgabe mit zwei Zuständigen fächert damit in
    * zwei Zeilen auf (sie steht in beiden Kacheln - gewollt), und eine ohne
    * jede Zuweisung liefert genau eine Zeile mit user_id IS NULL. Das IST der
@@ -274,6 +280,11 @@ router.get('/', (req, res) => {
          WHERE t.status != 'done'
            AND t.archived_at IS NULL
            AND ${visibilityWhere('t', 'task_assignments', 'task_id', '@me')}
+           -- Only what is due today or overdue. Without this cap, ticking off a
+           -- recurring task made its successor appear in the tile right away,
+           -- which took the satisfaction out of finishing it. Undated tasks
+           -- never qualify; the Tasks page still lists them.
+           AND t.due_date IS NOT NULL AND t.due_date <= @today
       ),
       ranked AS (
         SELECT task_id, bucket_user_id,

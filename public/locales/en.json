@@ -121,7 +121,7 @@
         "greetingMorning": "Good morning, {{name}}",
         "greetingDay": "Good afternoon, {{name}}",
         "greetingEvening": "Good evening, {{name}}",
-        "allDone": "All done",
+        "allDone": "Nothing for today",
         "noEvents": "No events",
         "noPinnedNotes": "No pinned notes",
         "todayMeals": "Today's meals",

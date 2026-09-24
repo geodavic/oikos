@@ -445,15 +445,11 @@ function firstName(displayName) {
   return String(displayName ?? '').trim().split(/\s+/)[0] || String(displayName ?? '');
 }
 
-function greeting(displayName) {
-  const h = new Date().getHours();
-  const name = esc(firstName(displayName));
-  if (h >= 5 && h < 12) return t('dashboard.greetingMorning', { name });
-  if (h >= 12 && h < 18) return t('dashboard.greetingDay',    { name });
-  return t('dashboard.greetingEvening', { name });
-}
+// The page title is the board's name, not a time-of-day greeting. A proper
+// name, so it is not translated.
+const DASHBOARD_TITLE = 'Duckboard';
 
-// Tageszeit-Fenster für den Begrüßungs-Gradienten (deckt sich mit greeting()).
+// Tageszeit-Fenster für den Titel-Gradienten.
 // Nacht (0–4 Uhr) zählt zum Abend, damit 00:37 nicht als „Morgen" begrüßt wird.
 function greetingPeriod() {
   const h = new Date().getHours();
@@ -907,6 +903,10 @@ function renderTaskBucketWidget(member, data, size) {
    * andere Frage: dort steht die Zahl fuer „so viele stehen hier", hier fuer
    * „so viel ist offen". */
   const openCount = Number(bucket?.open_count) || 0;
+  // A member's "All" opens the Tasks page already filtered to that person.
+  // The seal slug is explicit because the href now carries a query string.
+  const allHref = member ? `/tasks?assigned_to=${member.id}` : '/tasks';
+  const header = (count) => widgetHeader(id, title, count, allHref, null, 'tasks');
 
   if (!rows.length) {
     /* Leer heisst leer gerendert, NICHT '' zurueckgeben: eine Kachel, deren
@@ -915,7 +915,7 @@ function renderTaskBucketWidget(member, data, size) {
      * Widgets nicht auf - sie waere aus der Oberflaeche heraus nicht mehr
      * erreichbar. Das hat das Familien-Widget schon einmal gekostet. */
     return `<div class="widget widget--tasks">
-      ${widgetHeader(id, title, 0, '/tasks')}
+      ${header(0)}
       <div class="widget__empty">
         <i data-lucide="check-circle" class="empty-state__icon" style="color:var(--color-success)" aria-hidden="true"></i>
         <div>${member ? t('dashboard.allDone') : t('dashboard.unassignedTasksEmpty')}</div>
@@ -948,7 +948,7 @@ function renderTaskBucketWidget(member, data, size) {
   }).join('');
 
   return `<div class="widget widget--tasks">
-    ${widgetHeader(id, title, openCount, '/tasks')}
+    ${header(openCount)}
     <div class="widget__body">${items}</div>
   </div>`;
 }
@@ -2174,7 +2174,7 @@ function renderDashboardOverview(user, editing = false, weather = null, updatedA
       <div class="dashboard-overview__header${editing ? ' dashboard-overview__header--editing' : ''}">
         <div class="dashboard-overview__heading">
           <span class="dashboard-overview__date">${dateLabel}</span>
-          <h2 class="dashboard-overview__title dashboard-overview__title--${greetingPeriod()}">${greeting(user.display_name)}</h2>
+          <h2 class="dashboard-overview__title dashboard-overview__title--${greetingPeriod()}">${DASHBOARD_TITLE}</h2>
           ${mastheadWeatherHtml(weather)}
         </div>
         <div class="dashboard-overview__tools">
@@ -3899,10 +3899,7 @@ export async function render(container, { user }) {
     if (document.hidden) return;
     const titleEl = container.querySelector('.dashboard-overview__title');
     if (titleEl) {
-      titleEl.replaceChildren();
-      titleEl.insertAdjacentHTML('afterbegin', greeting(user.display_name));
-      // Gradient-Periode mit-resyncen: sonst aktualisieren sich über Mittag/18 Uhr
-      // die Worte, aber der Tageszeit-Gradient bliebe auf dem alten Fenster stehen.
+      // The title text is static; only the time-of-day gradient needs resyncing.
       titleEl.classList.remove(
         'dashboard-overview__title--morning',
         'dashboard-overview__title--day',

@@ -505,3 +505,36 @@ test('Die /api/v1-Modulsperre kann diesen Endpoint gar nicht abdecken', async ()
   assert.equal(access.calendar, 'none', 'gesperrt ist der Kalender, und den fragt niemand für /dashboard ab');
   clearModuleDenials(KID);
 });
+
+// --------------------------------------------------------------------------
+// Member task tiles only show what is due today or overdue. Ticking off a
+// recurring task must not make its successor appear in the tile right away.
+// --------------------------------------------------------------------------
+test('Member tiles: tasks due tomorrow or undated stay out of the bucket', async () => {
+  clearModuleDenials(KID);
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const tomorrowLocal = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  const insert = db.prepare(`
+    INSERT INTO tasks (title, priority, status, due_date, visibility, created_by)
+    VALUES (?, 'medium', 'open', ?, 'all', ?)
+  `);
+  const assign = db.prepare('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)');
+  const tomorrowId = insert.run('Due tomorrow', tomorrowLocal, PARENT).lastInsertRowid;
+  const undatedId = insert.run('No due date', null, PARENT).lastInsertRowid;
+  assign.run(tomorrowId, PARENT);
+  assign.run(undatedId, PARENT);
+
+  try {
+    const body = await dashboardAs(PARENT);
+    const urgentTitles = body.urgentTasks.map((t) => t.title);
+    assert.ok(urgentTitles.includes('Due tomorrow') && urgentTitles.includes('No due date'),
+      'precondition: both tasks are visible open tasks, so only the window can drop them');
+
+    const bucket = body.tasksByAssignee.find((b) => b.user_id === PARENT);
+    assert.deepEqual(bucket?.tasks.map((t) => t.title), ['Geheime Steuerprüfung'],
+      'only the task due today belongs in the tile');
+    assert.equal(bucket.open_count, 1, 'the badge counts the same window as the rows');
+  } finally {
+    db.prepare('DELETE FROM tasks WHERE id IN (?, ?)').run(tomorrowId, undatedId);
+  }
+});

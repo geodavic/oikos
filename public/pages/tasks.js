@@ -3860,6 +3860,13 @@ export async function render(container, { user }) {
     }
   } catch {}
 
+  // Deep link from a dashboard member tile: ?assigned_to=<id> shows exactly that
+  // person, replacing any saved person filter. Not persisted as "assigned to me".
+  const urlAssignee = Number(new URLSearchParams(window.location.search).get('assigned_to'));
+  if (Number.isInteger(urlAssignee) && urlAssignee > 0) {
+    state.filters.assigned_to = [String(urlAssignee)];
+  }
+
   // View-Mode: URL-Parameter > localStorage > Default 'list'
   const urlView = new URLSearchParams(window.location.search).get('view');
   const savedView = localStorage.getItem('yuvomi-tasks-view');
