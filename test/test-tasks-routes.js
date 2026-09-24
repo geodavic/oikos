@@ -93,11 +93,13 @@ async function call(method, path, { as, body } = {}) {
 
 // Eine gültige Kategorie fixieren (aus den migrierten Defaults).
 let CATEGORY;
+let CATEGORY_2;
 test('setup: Default-Kategorien vorhanden', async () => {
   const r = await call('GET', '/categories', { as: { id: ALICE, role: 'admin' } });
   assert.equal(r.status, 200);
   assert.ok(r.body.data.length >= 2);
   CATEGORY = r.body.data[0].key;
+  CATEGORY_2 = r.body.data[1].key;
 });
 
 // --------------------------------------------------------
@@ -343,6 +345,39 @@ test('GET /: mehrere Personen verknüpfen sich ODER', async () => {
 
   const two = await call('GET', `/?assigned_to=${ALICE}&assigned_to=${BOB}`, { as: admin });
   assert.deepEqual(titles(two.body.data), [`${marker}-alice`, `${marker}-bob`]);
+});
+
+test('GET /: several categories are OR-ed', async () => {
+  const admin = { id: ALICE, role: 'admin' };
+  const marker = `cat-${randomUUID().slice(0, 8)}`;
+  await call('POST', '/', { as: admin, body: { title: `${marker}-a`, category: CATEGORY } });
+  await call('POST', '/', { as: admin, body: { title: `${marker}-b`, category: CATEGORY_2 } });
+
+  const titles = (rows) => rows.filter((r) => r.title.startsWith(marker)).map((r) => r.title).sort();
+
+  const one = await call('GET', `/?category=${CATEGORY}`, { as: admin });
+  assert.deepEqual(titles(one.body.data), [`${marker}-a`]);
+
+  const two = await call('GET', `/?category=${CATEGORY}&category=${CATEGORY_2}`, { as: admin });
+  assert.deepEqual(titles(two.body.data), [`${marker}-a`, `${marker}-b`]);
+});
+
+test('GET /: due_until keeps tasks due on or before the date, plus undated ones', async () => {
+  const admin = { id: ALICE, role: 'admin' };
+  const marker = `due-${randomUUID().slice(0, 8)}`;
+  await call('POST', '/', { as: admin, body: { title: `${marker}-early`, due_date: '2030-01-10' } });
+  await call('POST', '/', { as: admin, body: { title: `${marker}-edge`, due_date: '2030-01-15' } });
+  await call('POST', '/', { as: admin, body: { title: `${marker}-late`, due_date: '2030-01-20' } });
+  await call('POST', '/', { as: admin, body: { title: `${marker}-none` } });
+
+  const titles = (rows) => rows.filter((r) => r.title.startsWith(marker)).map((r) => r.title).sort();
+
+  const cut = await call('GET', '/?due_until=2030-01-15', { as: admin });
+  assert.deepEqual(titles(cut.body.data), [`${marker}-early`, `${marker}-edge`, `${marker}-none`]);
+
+  // A malformed value is ignored rather than filtering everything out.
+  const bad = await call('GET', '/?due_until=soon', { as: admin });
+  assert.equal(titles(bad.body.data).length, 4);
 });
 
 test('GET /: ein leerer oder unsinniger Wert engt nicht versehentlich ein', async () => {

@@ -360,7 +360,13 @@ test('der Status lässt sich aus der Detailansicht weiterschalten', async () => 
   assert.doesNotMatch(src, /archived:\s*\{ status:/, 'archivierte Aufgaben werden nicht weitergeschaltet');
 
   const fn = src.slice(src.indexOf('async function advanceTaskStatus'));
-  assert.match(fn, /api\.patch\(`\/tasks\/\$\{task\.id\}\/status`/, 'nutzt die bestehende Route');
+  // Seit der Erfassung des Erledigers (Migration 152) laeuft der Aufruf ueber
+  // patchTaskStatus - den einen Ort, an dem „wer war es?" gefragt wird. Die
+  // Route ist dieselbe, sie steht nur eine Ebene tiefer.
+  assert.match(fn, /patchTaskStatus\(task\.id, status/, 'geht ueber den gemeinsamen Statuswechsel');
+  assert.match(fn, /overModal: true/, 'und fragt ueber der offenen Detailansicht, nicht statt ihrer');
+  const choke = src.slice(src.indexOf('async function patchTaskStatus'));
+  assert.match(choke, /api\.patch\(`\/tasks\/\$\{id\}\/status`/, 'nutzt die bestehende Route');
   assert.match(fn, /task\.status = previous;/, 'rollt bei Fehler zurück');
   assert.match(fn, /showToast\(/, 'und meldet den Fehler');
 });

@@ -47,7 +47,7 @@ export function housekeepingPaths() {
       delete: op({ summary: 'Delete housekeeping decay task', tag: 'Housekeeping', params: [idParam('taskId', 'Decay task ID')], stateChanging: true }),
     },
     '/api/v1/housekeeping/decay-tasks/{taskId}/complete': {
-      post: op({ summary: 'Mark housekeeping decay task complete', tag: 'Housekeeping', params: [idParam('taskId', 'Decay task ID')], stateChanging: true }),
+      post: op({ summary: 'Mark housekeeping decay task complete', tag: 'Housekeeping', params: [idParam('taskId', 'Decay task ID')], stateChanging: true, requestBody: jsonBody(null), description: 'Body: { completed_by? }. Optionally records which household member did the chore; the undo path (PATCH with `last_completed: null`) clears it again.' }),
     },
     '/api/v1/housekeeping/supply-requests': {
       post: op({ summary: 'Create housekeeping supply request and shopping item', tag: 'Housekeeping', stateChanging: true, requestBody: jsonBody(null) }),

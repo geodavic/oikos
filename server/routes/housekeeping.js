@@ -12,6 +12,7 @@ import * as db from '../db.js';
 import { normalizeAvatarData, syncFamilyMemberArtifacts } from '../auth.js';
 import { collectErrors, color, date, datetime, month, num, oneOf, str, id as validateId, MAX_SHORT, MAX_TEXT, MAX_TITLE } from '../middleware/validate.js';
 import { minutesBetween, computeHourlyAmount } from '../services/housekeeping-billing.js';
+import { resolveHouseholdMember } from '../utils/household-member.js';
 import {
   formatDateKey,
   formatMoney,
@@ -158,6 +159,31 @@ function taskUrgency(row, now = new Date()) {
   return { urgency, status, due_date: due.toISOString() };
 }
 
+/**
+ * Who completed the chore? Same rule as for tasks (server/routes/tasks.js):
+ * optional, must be a household member, housekeeping workers excluded.
+ *
+ * Decay chores have no assignee and carry no points, so this name is the only
+ * record that the area was looked after by anyone in particular - there is no
+ * reward ledger entry to fall back on.
+ */
+function resolveDecayCompletedBy(body) {
+  // `body?` and not `body`: completing a chore has never needed a body, and the
+  // clients that send none leave req.body undefined. Reading through it
+  // unguarded turned "tick off a chore" into a 500.
+  return resolveHouseholdMember(db.get(), body?.completed_by, 'completed_by', validateId);
+}
+
+/** A decay chore plus the display name behind `last_completed_by`. */
+function readDecayTask(id) {
+  return db.get().prepare(`
+    SELECT d.*, u.display_name AS last_completed_by_name
+    FROM housekeeping_decay_tasks d
+    LEFT JOIN users u ON d.last_completed_by = u.id
+    WHERE d.id = ?
+  `).get(id);
+}
+
 function publicDecayTask(row) {
   const computed = taskUrgency(row);
   return {
@@ -166,6 +192,8 @@ function publicDecayTask(row) {
     area: row.area,
     frequency_days: row.frequency_days,
     last_completed: row.last_completed,
+    last_completed_by: row.last_completed_by ?? null,
+    last_completed_by_name: row.last_completed_by_name ?? null,
     urgency: computed.urgency === Number.MAX_SAFE_INTEGER ? null : Number(computed.urgency.toFixed(3)),
     urgency_status: computed.status,
     due_date: computed.due_date,
@@ -978,7 +1006,12 @@ router.post('/work-sessions/check-out', (req, res) => {
 
 router.get('/decay-tasks', (_req, res) => {
   try {
-    const rows = db.get().prepare('SELECT * FROM housekeeping_decay_tasks ORDER BY area COLLATE NOCASE, name COLLATE NOCASE').all();
+    const rows = db.get().prepare(`
+      SELECT d.*, u.display_name AS last_completed_by_name
+      FROM housekeeping_decay_tasks d
+      LEFT JOIN users u ON d.last_completed_by = u.id
+      ORDER BY d.area COLLATE NOCASE, d.name COLLATE NOCASE
+    `).all();
     const tasks = rows
       .map(publicDecayTask)
       .sort((a, b) => {
@@ -1035,13 +1068,16 @@ router.patch('/decay-tasks/:taskId', (req, res) => {
       return res.status(400).json({ error: 'frequency_days must be a positive integer.', code: 400 });
     }
 
+    // Clearing last_completed clears who did it. This is the undo button's route:
+    // leaving the name behind would show a chore as never done by someone who,
+    // as far as the record now goes, never did it.
+    const completedBy = vCompleted.value === null ? null : existing.last_completed_by;
     db.get().prepare(`
       UPDATE housekeeping_decay_tasks
-      SET name = ?, area = ?, frequency_days = ?, last_completed = ?
+      SET name = ?, area = ?, frequency_days = ?, last_completed = ?, last_completed_by = ?
       WHERE id = ?
-    `).run(vName.value, vArea.value, Number(vFrequency.value), vCompleted.value, vId.value);
-    const row = db.get().prepare('SELECT * FROM housekeeping_decay_tasks WHERE id = ?').get(vId.value);
-    res.json({ data: publicDecayTask(row) });
+    `).run(vName.value, vArea.value, Number(vFrequency.value), vCompleted.value, completedBy, vId.value);
+    res.json({ data: publicDecayTask(readDecayTask(vId.value)) });
   } catch (err) {
     log.error('PATCH /decay-tasks/:taskId error:', err);
     res.status(500).json({ error: 'Internal server error.', code: 500 });
@@ -1055,9 +1091,12 @@ router.post('/decay-tasks/:taskId/complete', (req, res) => {
     const existing = db.get().prepare('SELECT * FROM housekeeping_decay_tasks WHERE id = ?').get(vId.value);
     if (!existing) return res.status(404).json({ error: 'Task not found.', code: 404 });
 
-    db.get().prepare('UPDATE housekeeping_decay_tasks SET last_completed = ? WHERE id = ?').run(nowIso(), vId.value);
-    const row = db.get().prepare('SELECT * FROM housekeeping_decay_tasks WHERE id = ?').get(vId.value);
-    res.json({ data: publicDecayTask(row) });
+    const vCompletedBy = resolveDecayCompletedBy(req.body);
+    if (vCompletedBy.error) return res.status(400).json({ error: vCompletedBy.error, code: 400 });
+
+    db.get().prepare('UPDATE housekeeping_decay_tasks SET last_completed = ?, last_completed_by = ? WHERE id = ?')
+      .run(nowIso(), vCompletedBy.value, vId.value);
+    res.json({ data: publicDecayTask(readDecayTask(vId.value)) });
   } catch (err) {
     log.error('POST /decay-tasks/:taskId/complete error:', err);
     res.status(500).json({ error: 'Internal server error.', code: 500 });

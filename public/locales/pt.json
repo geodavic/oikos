@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Quem concluiu esta tarefa?",
+        "completedByBulkTitle": "Quem concluiu estas tarefas?",
+        "completedByLabel": "Concluída por",
         "swipeSidesSwapped": "As direções de deslize foram trocadas - a ação principal está agora do outro lado.",
         "apply": "Adicionar",
         "searchClear": "Limpar pesquisa",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} mais hoje",
         "memberOpenTasks": "{{count}} tarefas",
         "memberOpenTasks_one": "{{count}} tarefa",
+        "memberTasksWidget": "Tarefas de {{name}}",
+        "unassignedTasks": "Não atribuídas",
+        "unassignedTasksEmpty": "Tudo está atribuído",
         "manage": "Gerir",
         "todayNothingElseTomorrow": "Mais nada por hoje - amanhã: {{title}}"
     },
@@ -359,6 +365,13 @@
         "filterClearAll": "Limpar todos os filtros",
         "filterGroupPerson": "Pessoa",
         "filterGroupTag": "Etiqueta",
+        "filterGroupCategory": "Categoria",
+        "filterGroupDue": "Vence até",
+        "dueFilterToday": "Hoje",
+        "dueFilterDays": "{{days}} dias",
+        "dueFilterAny": "Qualquer data",
+        "dueFilterDateLabel": "Vence até a data",
+        "dueFilterChip": "Vence: {{label}}",
         "filterGroupPriority": "Prioridade",
         "filterGroupStatus": "Estado",
         "swipedDoneToast": "Marcado como concluído.",

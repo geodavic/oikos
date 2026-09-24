@@ -277,3 +277,66 @@ export function openCropDialog(imageDataUrl) {
     img.src = imageDataUrl;
   });
 }
+
+// --------------------------------------------------------------------------
+// Gemeinsamer Auswahl-Pfad für Bild-Uploads
+// --------------------------------------------------------------------------
+// Vor dieser Funktion stand dieselbe Kette (Typ prüfen → Größe prüfen →
+// FileReader → openCropDialog → Länge prüfen) in personal-account.js und
+// admin-family.js Zeile für Zeile identisch, in housekeeping.js verkürzt ohne
+// die beiden Prüfungen - und birthdays.js schickte die Rohdatei ungeprüft und
+// ungeskaliert an den Server. Das war der Grund für die 413er beim Anlegen
+// eines Geburtstags: nicht das Limit war zu klein, dieser eine Pfad hat als
+// einziger nicht verkleinert.
+
+// Grenze für die QUELLDATEI. Der Zuschnitt liefert unabhängig davon immer ein
+// OUTPUT_SIZE-JPEG (wenige zehn KB), die Grenze schützt also nur das Decodieren
+// im Browser, nicht die Nutzlast. Sie folgt MAX_PHOTO_BYTES aus
+// server/middleware/validate.js, damit der Client nichts ablehnt, was der
+// Server annehmen würde.
+export const MAX_SOURCE_IMAGE_BYTES = 12 * 1024 * 1024;
+
+// Bewusst inklusive GIF: der Zuschnitt zeichnet auf ein Canvas und gibt immer
+// image/jpeg zurück, das Quellformat verlässt den Browser also nie. Die engere
+// Liste in den Settings spiegelte die Server-Regex für avatar_data - eine
+// Vorsicht, die hier ins Leere lief.
+const ACCEPTED_SOURCE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error(t('settings.profilePictureReadError')));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Datei auswählen, zuschneiden lassen und als Data-URL zurückgeben.
+ *
+ * @param {File|null|undefined} file  Datei aus dem <input type="file">.
+ * @param {{ maxLength?: number }} [options]  maxLength greift NACH dem
+ *   Zuschnitt und ist nur dort sinnvoll, wo der Server enger begrenzt als das,
+ *   was ein OUTPUT_SIZE-JPEG erzeugen kann (avatar_data: 768 KB).
+ * @returns {Promise<string|undefined>} Data-URL, oder `undefined` wenn keine
+ *   Datei da war oder der Dialog abgebrochen wurde. Beides heißt „nichts
+ *   ändern" - Aufrufer dürfen es nicht als „Bild entfernen" lesen.
+ * @throws {Error} mit übersetzter Meldung bei falschem Typ, zu großer Datei
+ *   oder Lesefehler.
+ */
+export async function pickCroppedImage(file, { maxLength } = {}) {
+  if (!file) return undefined;
+  if (!ACCEPTED_SOURCE_TYPES.includes(file.type)) {
+    throw new Error(t('settings.profilePictureTypeError'));
+  }
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error(t('settings.profilePictureFileTooLarge'));
+  }
+
+  const cropped = await openCropDialog(await readFileAsDataUrl(file));
+  if (cropped === null) return undefined;
+  if (maxLength && cropped.length > maxLength) {
+    throw new Error(t('settings.profilePictureTooLarge'));
+  }
+  return cropped;
+}

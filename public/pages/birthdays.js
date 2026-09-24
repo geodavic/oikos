@@ -319,15 +319,6 @@ function bindEvents() {
   });
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Failed to read image.'));
-    reader.readAsDataURL(file);
-  });
-}
-
 function birthdayPreviewHtml(name, photoData) {
   if (photoData) return `<img class="birthday-preview__image" src="${photoData}" alt="${esc(name || '')}">`;
   return `<span class="birthday-preview__fallback">${esc(initials(name))}</span>`;
@@ -402,10 +393,20 @@ function openBirthdayModal({ mode, birthday = null }) {
         const file = e.target.files?.[0];
         if (!file) return;
         try {
-          photoData = await readFileAsDataUrl(file);
+          // Kein maxLength: der Zuschnitt liefert immer ein 256er-JPEG, das die
+          // Server-Grenze (MAX_PHOTO_LENGTH) nicht annähernd erreichen kann.
+          const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+          const cropped = await pickCroppedImage(file);
+          // undefined = Dialog abgebrochen: bestehendes Foto bleibt stehen.
+          if (cropped === undefined) return;
+          photoData = cropped;
           renderPreview();
         } catch (err) {
           window.yuvomi?.showToast(err.message, 'danger');
+        } finally {
+          // Ohne Reset feuert `change` nicht erneut, wenn dieselbe Datei noch
+          // einmal gewählt wird - nach einem Abbruch der häufigste Fall.
+          fileInput.value = '';
         }
       });
       panel.querySelector('#bd-remove-photo').addEventListener('click', () => {

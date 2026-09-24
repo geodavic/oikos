@@ -51,7 +51,7 @@ const DENIED_PAYLOAD = Object.freeze({
   calendar: () => ({ upcomingEvents: [], birthdays: [], birthdayCount: 0 }),
   tasks: () => ({
     urgentTasks: [], openTaskCount: 0, overdueTaskCount: 0,
-    memberTodayTasks: [], tasksDoneToday: 0,
+    memberTodayTasks: [], tasksDoneToday: 0, tasksByAssignee: [],
   }),
   meals: () => ({ todayMeals: [] }),
   notes: () => ({ pinnedNotes: [], pinnedNotesCount: 0 }),
@@ -112,7 +112,16 @@ const router = express.Router();
  *
  * Response: {
  *   upcomingEvents: CalendarEvent[],   // Nächste 5 Termine
- *   urgentTasks:    Task[],            // High/Urgent mit Fälligkeit ≤ 48h
+ *   urgentTasks:    Task[],            // Offene, sichtbare Aufgaben, überfällig zuerst (max. 5).
+ *                                      // Speist Cockpit und Wand-Modus. KEIN Prioritäts- oder
+ *                                      // 48h-Filter - hier stand er einmal, die Sortier-Umstellung
+ *                                      // hat ihn ersetzt, dieser Satz blieb bis 2026-08-21 stehen.
+ *   tasksByAssignee: { user_id, open_count, overdue_count, tasks }[],
+ *                                      // Dasselbe Set, nach Zuständigkeit partitioniert (max. 5 je
+ *                                      // Eimer). user_id === null ist der Eimer „nicht zugewiesen".
+ *                                      // Eine Aufgabe mit mehreren Zuständigen steht in MEHREREN
+ *                                      // Eimern - das ist gewollt. Wer nichts Offenes hat, hat gar
+ *                                      // keinen Eintrag. open_count ist UNGEKAPPT (s. u.).
  *   todayMeals:     Meal[],            // Mahlzeiten für heute
  *   pinnedNotes:    Note[],            // Angepinnte Notizen (max. 3)
  *   users:          User[],            // Alle User (für Avatar-Farben)
@@ -144,7 +153,6 @@ router.get('/', (req, res) => {
   const todayLocalKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const localWeekdayIdx = (now.getDay() + 6) % 7;
   const currentMonth = todayLocalKey.slice(0, 7);
-  const deadline48h = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
 
   // Modulrechte des Betrachters (#467, siehe DENIED_PAYLOAD oben). Gelesen aus
   // dem, was die Auth-Schicht schon aufgelöst hat: null für Admins und für
@@ -176,12 +184,15 @@ router.get('/', (req, res) => {
   //   3. ties broken by priority rank (urgent=0..none=4)
   // due_sort = due_date + due_time, falling back to 23:59:59 when only a date is set,
   // and NULL when there is no due_date at all.
+  // Lokal, nicht UTC: verglichen wird gegen `due_date || 'T' || due_time`, und
+  // beide stehen als lokale Eingabewerte in der DB. Ein UTC-Zeitstempel verschob
+  // die Grenze „überfällig" um den Zonen-Offset.
+  // Steht hier statt im Block darunter, weil `tasksByAssignee` dieselbe Grenze
+  // zieht - zwei Ableitungen desselben Zeitpunkts wären zwei Wahrheiten.
+  const nowIso = `${todayLocalKey}T${String(now.getHours()).padStart(2, '0')}`
+    + `:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
   if (allows('tasks')) try {
-    // Lokal, nicht UTC: verglichen wird gegen `due_date || 'T' || due_time`, und
-    // beide stehen als lokale Eingabewerte in der DB. Ein UTC-Zeitstempel verschob
-    // die Grenze „überfällig" um den Zonen-Offset.
-    const nowIso = `${todayLocalKey}T${String(now.getHours()).padStart(2, '0')}`
-      + `:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     result.urgentTasks = d.prepare(`
       SELECT t.*, u.display_name AS assigned_name, u.avatar_color AS assigned_color,
         ${ASSIGNED_USERS_SQL},
@@ -209,6 +220,102 @@ router.get('/', (req, res) => {
   } catch (err) {
     log.error('urgentTasks error:', err.message);
     result.urgentTasks = [];
+  }
+
+  /* DASSELBE SET, NACH ZUSTÄNDIGKEIT PARTITIONIERT (#per-person-widgets).
+   *
+   * Das Dashboard zeigt seit dem Umbau eine Aufgaben-Kachel JE MITGLIED plus
+   * eine für das nicht Zugewiesene. Das ist keine zweite Wahrheit neben
+   * `urgentTasks` oben, sondern genau dieselbe Abfrage mit einem PARTITION BY
+   * davor - Filter und Sortierung stehen deshalb hier Zeile für Zeile so wie
+   * dort. Wer eines von beiden ändert, ändert beides.
+   *
+   * LEFT JOIN, NICHT JOIN. Eine Aufgabe mit zwei Zuständigen fächert damit in
+   * zwei Zeilen auf (sie steht in beiden Kacheln - gewollt), und eine ohne
+   * jede Zuweisung liefert genau eine Zeile mit user_id IS NULL. Das IST der
+   * Eimer „nicht zugewiesen": SQLite fasst NULLs in einer Partition zusammen,
+   * also bekommt er sein eigenes COUNT(*) wie jeder andere. `memberTodayTasks`
+   * weiter unten benutzt einen INNER JOIN und verliert diese Aufgaben
+   * vollständig - der Unterschied ist Absicht, nicht Nachlässigkeit.
+   *
+   * open_count IST UNGEKAPPT, und das ist der eigentliche Punkt dieser
+   * Abfrage. Die Kachel zeigte bis hierher `tasks.length` im Kopf, also eine
+   * Zahl, die bei fünf stehen blieb, während zwölf offen waren. Dieselbe
+   * Falle wie bei pinnedNotesCount und birthdayCount weiter unten: eine Zahl,
+   * die genau bis zu ihrer Obergrenze stimmt, ist die gefährlichste Sorte.
+   * COUNT(*) OVER () zählt vor dem Schnitt, in DERSELBEN Anweisung - die
+   * Zahl kann von der Liste gar nicht mehr abweichen.
+   *
+   * Warum Fensterfunktion statt Gruppieren in JS: der Schnitt bei fünf und
+   * der wahre Zähler entstehen so aus einer einzigen gefilterten Menge, und
+   * die teure äußere Projektion (t.*, dazu die JSON-Unterabfrage
+   * ASSIGNED_USERS_SQL je Zeile) läuft nur für die ≤5 Zeilen je Eimer, die
+   * den Schnitt überleben - nicht für jede offene Aufgabe des Haushalts.
+   *
+   * `task_id ASC` am Ende der Sortierung ist neu: `urgentTasks` hat keinen
+   * letzten Stecher, vollständig gleichrangige Aufgaben kommen dort also in
+   * beliebiger Reihenfolge zurück. Die vier dokumentierten Schlüssel davor
+   * bleiben unberührt. */
+  if (allows('tasks')) try {
+    const rows = d.prepare(`
+      WITH open_tasks AS (
+        SELECT t.id AS task_id,
+               ta.user_id AS bucket_user_id,
+               CASE WHEN t.due_date IS NULL THEN NULL
+                    ELSE t.due_date || 'T' || COALESCE(t.due_time, '23:59:59')
+               END AS due_sort,
+               CASE t.priority
+                 WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2
+                 WHEN 'low' THEN 3 ELSE 4
+               END AS prio_rank,
+               CASE WHEN t.due_date IS NOT NULL AND t.due_date < @today THEN 1 ELSE 0 END AS overdue_day
+          FROM tasks t
+          LEFT JOIN task_assignments ta ON ta.task_id = t.id
+         WHERE t.status != 'done'
+           AND t.archived_at IS NULL
+           AND ${visibilityWhere('t', 'task_assignments', 'task_id', '@me')}
+      ),
+      ranked AS (
+        SELECT task_id, bucket_user_id,
+               COUNT(*)         OVER (PARTITION BY bucket_user_id) AS bucket_open,
+               SUM(overdue_day) OVER (PARTITION BY bucket_user_id) AS bucket_overdue,
+               ROW_NUMBER()     OVER (
+                 PARTITION BY bucket_user_id
+                 ORDER BY
+                   CASE WHEN due_sort IS NOT NULL AND due_sort < @now THEN 0 ELSE 1 END ASC,
+                   due_sort IS NULL ASC,
+                   due_sort ASC,
+                   prio_rank ASC,
+                   task_id ASC
+               ) AS rn
+          FROM open_tasks
+      )
+      SELECT r.bucket_user_id, r.bucket_open, r.bucket_overdue,
+             t.*, ${ASSIGNED_USERS_SQL}
+        FROM ranked r
+        JOIN tasks t ON t.id = r.task_id
+       WHERE r.rn <= 5
+       ORDER BY r.bucket_user_id IS NULL ASC, r.bucket_user_id ASC, r.rn ASC
+    `).all({ now: nowIso, today: todayLocalKey, me: userId });
+
+    const buckets = new Map();
+    for (const { bucket_user_id, bucket_open, bucket_overdue, ...task } of rows) {
+      let bucket = buckets.get(bucket_user_id);
+      if (!bucket) {
+        bucket = {
+          user_id: bucket_user_id ?? null,
+          open_count: Number(bucket_open) || 0,
+          overdue_count: Number(bucket_overdue) || 0,
+          tasks: [],
+        };
+        buckets.set(bucket_user_id, bucket);
+      }
+      bucket.tasks.push(addAssignedUsers(task));
+    }
+    result.tasksByAssignee = [...buckets.values()];
+  } catch (err) {
+    log.error('tasksByAssignee error:', err.message);
+    result.tasksByAssignee = [];
   }
 
   // ZÄHLSTÄNDE FÜR DIE KENNZAHL-KACHELN.
@@ -330,10 +437,24 @@ router.get('/', (req, res) => {
     result.shoppingLists = [];
   }
 
-  // Alle User (für Avatar-Farben in Widgets)
+  /* Alle User (für Avatar-Farben in Widgets).
+   *
+   * `access_scope` kommt seit den Mitglieder-Kacheln mit, in derselben Form wie
+   * in USER_PUBLIC_COLUMNS (server/auth.js) - kein zweites, eigenes Kennzeichen
+   * für dieselbe Frage. Die Zeile hier schließt Reinigungskräfte aus, aber nicht
+   * die Gäste geteilter Ausgaben; solange daraus nur Avatarfarben und die
+   * Familien-Karte wurden, fiel das nicht auf. Eine Rasterkachel JE ZEILE macht
+   * daraus ein Layout-Problem, also muss der Client sie auseinanderhalten
+   * können.
+   * Bewusst wird hier NICHT gefiltert: diese Liste trägt auch die
+   * Avatar-Auflösung, und wen sie enthält, ist eine eigene Entscheidung mit
+   * eigener Reichweite. */
   try {
     result.users = d.prepare(
-      `SELECT id, display_name, avatar_color, avatar_data FROM users u
+      `SELECT id, display_name, avatar_color, avatar_data,
+              CASE WHEN EXISTS (SELECT 1 FROM split_expense_guest_users sg WHERE sg.user_id = u.id)
+                   THEN 'split_guest' ELSE 'family' END AS access_scope
+         FROM users u
        WHERE NOT EXISTS (SELECT 1 FROM housekeeping_workers hw WHERE hw.user_id = u.id)
        ORDER BY display_name`
     ).all();

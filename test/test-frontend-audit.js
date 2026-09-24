@@ -6063,6 +6063,19 @@ test('dashboard „Heute wichtig" is one inset-grouped list, not a tile grid', (
   const dashboardJs = read('../public/pages/dashboard.js');
   assert.match(dashboardJs, /class="module-seal today-cockpit-card__icon"/, 'the cockpit icon well takes its form from the seal');
 
+  /* KEIN ECHO ZWISCHEN COCKPIT UND KACHEL, und die Zusicherung haengt an EINEM
+   * Aufruf. `widgetShown` fragt, ob eine Domaene schon eine Kachel hat. Seit
+   * die Aufgaben eine Kachel je Mitglied haben, beantwortet ein Vergleich
+   * `w.id === id` das nicht mehr - `tasks-u7` ist niemals `tasks`, das Cockpit
+   * hielte sich fuer unbeschaeftigt und jede Aufgabe stuende doppelt auf dem
+   * Schirm. Ein Refactor zurueck auf den Id-Vergleich sieht harmlos aus und
+   * faellt sonst niemandem auf, weil beide Fassungen rendern - nur eine
+   * doppelt. */
+  assert.match(dashboardJs, /const widgetShown = \(id\) =>[\s\S]{0,400}?widgetFamily\(w\.id\) === id/,
+    'widgetShown muss ueber widgetFamily vergleichen, sonst echot das Cockpit die Mitglieder-Kacheln');
+  assert.match(dashboardJs, /const widgetShown = \(id\) =>[\s\S]{0,400}?isWidgetModuleEnabled\(w\.id\)/,
+    'widgetShown muss gesperrte Kacheln ausnehmen, sonst schweigt das Cockpit fuer jemanden, der nichts anderes hat');
+
   // Sehr schmale Container bleiben einspaltig (Container-Query, kein Viewport-BP)
   assert.match(
     dashboard,
@@ -12163,7 +12176,11 @@ test('ein Modul fuehrt EIN Zeichen, und die Zuordnung steht an einer Stelle', ()
   //     (settings/module-order.js). Jede einzelne ist hier benannt, weil jede
   //     einzeln zurueckkommen kann.
   const dashboard = read('../public/pages/dashboard.js');
-  assert.match(dashboard, /function widgetIcon\(id\)\s*\{\s*\n\s*return MODULE_ICON\[id\]/,
+  // `widgetFamily(id)` ist zugelassen und aendert an der Zusicherung nichts:
+  // die Aufgaben-Kacheln heissen seit den Mitglieder-Kacheln `tasks-u7`, und
+  // ihr Zeichen ist das ihres Moduls. Verboten bleibt, was hier verboten war -
+  // eine zweite Zuordnung Modul → Zeichen neben MODULE_ICON.
+  assert.match(dashboard, /function widgetIcon\(id\)\s*\{\s*\n\s*return MODULE_ICON\[(id|widgetFamily\(id\))\]/,
     'widgetIcon leitet aus MODULE_ICON ab, statt eine eigene Karte zu fuehren');
   assert.doesNotMatch(dashboard, /const map = \{ tasks:/,
     'die zweite Modul→Zeichen-Tabelle ist wieder da');
@@ -12659,4 +12676,36 @@ test('ein Teilschritt lässt sich korrigieren und entfernen, nicht nur abhaken (
   const block = /\.subtask-item__action \{([\s\S]*?)\}/.exec(css);
   assert.ok(block, '.subtask-item__action fehlt');
   assert.match(block[1], /min-height:\s*var\(--target-base\)/);
+});
+
+test('Profilbilder laufen ausnahmslos über den gemeinsamen Zuschnitt (avatar-crop.js)', () => {
+  // Vorgeschichte: vier Stellen boten ein Profilbild an. Drei trugen dieselbe
+  // Kette aus Typprüfung, Größenprüfung, FileReader und openCropDialog - zwei
+  // davon Zeile für Zeile identisch, die dritte um beide Prüfungen verkürzt.
+  // Die vierte, birthdays.js, schickte die Rohdatei ungeskaliert an den Server.
+  // Ein Handyfoto sprengte dort das Body-Limit (413), während dieselbe Datei
+  // über jeden anderen Pfad als 256er-JPEG von wenigen zehn KB durchging.
+  // Nicht das Limit war zu klein - dieser eine Pfad hat als einziger nicht
+  // verkleinert. Der gemeinsame Einstieg heißt jetzt pickCroppedImage.
+  const AVATAR_PICKERS = [
+    '../public/pages/birthdays.js',
+    '../public/pages/housekeeping.js',
+    '../public/settings/pages/personal-account.js',
+    '../public/settings/pages/admin-family.js',
+  ];
+  for (const path of AVATAR_PICKERS) {
+    assert.match(withoutBlockComments(read(path)), /pickCroppedImage/,
+      `${path} wählt ein Profilbild aus, ohne es über pickCroppedImage zu schicken - `
+      + 'damit landet die Rohdatei in der Nutzlast (das war der 413 bei Geburtstagen).');
+  }
+
+  // openCropDialog bleibt exportiert, aber der Einstieg von außen ist
+  // pickCroppedImage. Wer den Dialog direkt aufruft, umgeht Typ- und
+  // Größenprüfung - genau die Verkürzung, die housekeeping.js hatte.
+  const direct = walkJsFiles('../public/')
+    .filter((path) => !path.endsWith('utils/avatar-crop.js'))
+    .filter((path) => /openCropDialog/.test(withoutBlockComments(read(path))));
+  assert.deepEqual(direct, [],
+    `diese Dateien rufen openCropDialog direkt auf und überspringen damit die Prüfungen `
+    + `in pickCroppedImage: ${direct.join(', ')}`);
 });

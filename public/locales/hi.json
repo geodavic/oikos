@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "यह किसने पूरा किया?",
+        "completedByBulkTitle": "ये किसने पूरे किए?",
+        "completedByLabel": "द्वारा पूर्ण",
         "swipeSidesSwapped": "स्वाइप दिशाएँ बदल दी गई हैं - मुख्य क्रिया अब दूसरी ओर है।",
         "apply": "जोड़ें",
         "searchClear": "खोज साफ़ करें",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} और आज",
         "memberOpenTasks": "{{count}} कार्य",
         "memberOpenTasks_one": "{{count}} कार्य",
+        "memberTasksWidget": "{{name}} के कार्य",
+        "unassignedTasks": "असाइन नहीं किया गया",
+        "unassignedTasksEmpty": "सब कुछ असाइन है",
         "manage": "प्रबंधित करें",
         "todayNothingElseTomorrow": "आज और कुछ नहीं - कल: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "सभी फ़िल्टर हटाएं",
         "filterGroupPerson": "व्यक्ति",
         "filterGroupTag": "टैग",
+        "filterGroupCategory": "श्रेणी",
+        "filterGroupDue": "देय तिथि तक",
+        "dueFilterToday": "आज",
+        "dueFilterDays": "{{days}} दिन",
+        "dueFilterAny": "कभी भी",
+        "dueFilterDateLabel": "इस तारीख तक देय",
+        "dueFilterChip": "देय: {{label}}",
         "filterGroupPriority": "प्राथमिकता",
         "filterGroupStatus": "स्थिति",
         "swipedDoneToast": "पूर्ण के रूप में चिह्नित।",

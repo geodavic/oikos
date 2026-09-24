@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Ποιος το ολοκλήρωσε;",
+        "completedByBulkTitle": "Ποιος τα ολοκλήρωσε;",
+        "completedByLabel": "Ολοκληρώθηκε από",
         "swipeSidesSwapped": "Οι κατευθύνσεις σάρωσης αντιστράφηκαν - η κύρια ενέργεια βρίσκεται τώρα στην άλλη πλευρά.",
         "apply": "Προσθήκη",
         "searchClear": "Εκκαθάριση αναζήτησης",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} ακόμη σήμερα",
         "memberOpenTasks": "{{count}} εργασίες",
         "memberOpenTasks_one": "{{count}} εργασία",
+        "memberTasksWidget": "Εργασίες: {{name}}",
+        "unassignedTasks": "Χωρίς ανάθεση",
+        "unassignedTasksEmpty": "Όλα έχουν ανατεθεί",
         "manage": "Διαχείριση",
         "todayNothingElseTomorrow": "Τίποτα άλλο για σήμερα - αύριο: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "Εκκαθάριση όλων των φίλτρων",
         "filterGroupPerson": "Άτομο",
         "filterGroupTag": "Ετικέτα",
+        "filterGroupCategory": "Κατηγορία",
+        "filterGroupDue": "Προθεσμία έως",
+        "dueFilterToday": "Σήμερα",
+        "dueFilterDays": "{{days}} ημέρες",
+        "dueFilterAny": "Οποτεδήποτε",
+        "dueFilterDateLabel": "Προθεσμία έως ημερομηνία",
+        "dueFilterChip": "Προθεσμία: {{label}}",
         "filterGroupPriority": "Προτεραιότητα",
         "filterGroupStatus": "Κατάσταση",
         "swipedDoneToast": "Επισημάνθηκε ως ολοκληρωμένο.",

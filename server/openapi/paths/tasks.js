@@ -16,7 +16,8 @@ export function tasksPaths() {
           { name: 'archived',    in: 'query', required: false, schema: { type: 'string', enum: ['1', 'only'] }, description: 'Archived tasks are hidden by default. `1` includes them, `only` returns just the archive. A task keeps its own status while archived.' },
           { name: 'priority',    in: 'query', required: false, schema: { type: 'string', enum: ['none', 'low', 'medium', 'high', 'urgent'] } },
           { name: 'assigned_to', in: 'query', required: false, schema: { type: 'integer' }, description: 'Family member ID.' },
-          { name: 'category',    in: 'query', required: false, schema: { type: 'string' }, description: 'Task category key.' },
+          { name: 'category',    in: 'query', required: false, schema: { type: 'string' }, description: 'Task category key. Repeatable; several values are OR-ed.' },
+          { name: 'due_until',   in: 'query', required: false, schema: { type: 'string', format: 'date' }, description: 'Only tasks due on or before this date (YYYY-MM-DD). Tasks without a due date are always included.' },
           {
             name: 'tag',
             in: 'query',
@@ -68,11 +69,11 @@ export function tasksPaths() {
     },
     '/api/v1/tasks/{id}': {
       get: op({ summary: 'Get task', tag: 'Tasks', params: [idParam()] }),
-      put: op({ summary: 'Update task', tag: 'Tasks', params: [idParam()], stateChanging: true, requestBody: jsonBody(null) }),
+      put: op({ summary: 'Update task', tag: 'Tasks', params: [idParam()], stateChanging: true, requestBody: jsonBody(null), description: 'Full update. Moving `status` to `done` accepts the same optional `completed_by` as PATCH /status, with the same effect on the reward booking.' }),
       delete: op({ summary: 'Delete task', tag: 'Tasks', params: [idParam()], stateChanging: true }),
     },
     '/api/v1/tasks/{id}/status': {
-      patch: op({ summary: 'Update task status', tag: 'Tasks', params: [idParam()], stateChanging: true, requestBody: jsonBody(null), description: 'Body: { status }. Sending `archived` files the task away without touching its status - use PATCH /archive instead.' }),
+      patch: op({ summary: 'Update task status', tag: 'Tasks', params: [idParam()], stateChanging: true, requestBody: jsonBody(null), description: 'Body: { status, completed_by? }. `completed_by` records which household member actually did the work and is who the reward points go to - not the assignee. It is optional: without it the points fall back to the enrolled assignees. It is cleared whenever the task leaves `done`. Sending `archived` files the task away without touching its status - use PATCH /archive instead.' }),
     },
     '/api/v1/tasks/{id}/archive': {
       patch: op({ summary: 'Archive or restore a task', tag: 'Tasks', params: [idParam()], stateChanging: true, requestBody: jsonBody(null), description: 'Archives the task by default. Send `{ "archived": false }` to bring it back. The status is left untouched: a task that was done stays done, and no reward booking changes.' }),

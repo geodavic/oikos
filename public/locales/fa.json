@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "چه کسی این کار را انجام داد؟",
+        "completedByBulkTitle": "چه کسی این کارها را انجام داد؟",
+        "completedByLabel": "انجام‌دهنده",
         "swipeSidesSwapped": "جهت‌های کشیدن جابه‌جا شدند - کنش اصلی اکنون در سمت دیگر است.",
         "apply": "افزودن",
         "searchClear": "پاک کردن جستجو",
@@ -282,6 +285,9 @@
         "todayMore_one": "+{{count}} مورد دیگر امروز",
         "memberOpenTasks": "{{count}} وظیفه",
         "memberOpenTasks_one": "{{count}} وظیفه",
+        "memberTasksWidget": "کارهای {{name}}",
+        "unassignedTasks": "واگذارنشده",
+        "unassignedTasksEmpty": "همه چیز واگذار شده است",
         "manage": "مدیریت",
         "todayNothingElseTomorrow": "امروز دیگر برنامه‌ای نیست - فردا: {{title}}"
     },
@@ -368,6 +374,13 @@
         "filterGroupPriority": "اولویت",
         "filterGroupPerson": "شخص",
         "filterGroupTag": "برچسب",
+        "filterGroupCategory": "دسته",
+        "filterGroupDue": "سررسید تا",
+        "dueFilterToday": "امروز",
+        "dueFilterDays": "{{days}} روز",
+        "dueFilterAny": "هر زمان",
+        "dueFilterDateLabel": "سررسید تا تاریخ",
+        "dueFilterChip": "سررسید: {{label}}",
         "filterClearAll": "بازنشانی همه فیلترها",
         "navLabelOverdue": "کارها، {{count}} معوق",
         "statusArchived": "بایگانی‌شده",

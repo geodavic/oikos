@@ -825,6 +825,7 @@ Built-in cron-based database backup (default: 2 AM daily, keep last 7 copies). S
 | `BACKUP_SCHEDULE` | Cron expression for backup schedule | `0 2 * * *` | No |
 | `BACKUP_DIR` | Directory (inside container) where backup files are written. Must be a writable, mounted path, otherwise backups fail with `EACCES`. | `/backups` (container), `./backups` (bare metal) | No |
 | `BACKUP_KEEP` | Number of most-recent backup files to retain | `7` | No |
+| `JSON_BODY_LIMIT` | Maximum size of a JSON request body (Express body-limit syntax). The binding constraint is inline image uploads — birthday and inventory photos are sent as base64 data URLs, which inflate the raw file by ~4/3. The default leaves room for the ~12 MB per-photo cap; raising the photo cap in `server/middleware/validate.js` means raising this too. | `20mb` | No |
 | `BACKUP_UPLOAD_LIMIT` | Maximum size of a backup file uploaded for restore through the admin UI (Express body-limit syntax). Raise it when restoring a database larger than the default. | `100mb` | No |
 
 **WebDAV backup target (optional):** After each local backup, Yuvomi can automatically upload the file to any WebDAV-compatible server (Nextcloud, ownCloud, Hetzner Storage Box, Infomaniak kDrive, etc.). Configure in **Settings → Administration → Backup and restore → WebDAV Backup Target**, or via environment variables (env vars take precedence over the UI):

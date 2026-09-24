@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Kto to zrobił?",
+        "completedByBulkTitle": "Kto je zrobił?",
+        "completedByLabel": "Wykonane przez",
         "swipeSidesSwapped": "Kierunki przesuwania zostały zamienione - główna akcja jest teraz po drugiej stronie.",
         "apply": "Dodaj",
         "searchClear": "Wyczyść wyszukiwanie",
@@ -282,6 +285,9 @@
         "todayMore_one": "+{{count}} więcej dzisiaj",
         "memberOpenTasks": "{{count}} zadań",
         "memberOpenTasks_one": "{{count}} zadanie",
+        "memberTasksWidget": "Zadania: {{name}}",
+        "unassignedTasks": "Nieprzypisane",
+        "unassignedTasksEmpty": "Wszystko przypisane",
         "manage": "Zarządzaj",
         "todayNothingElseTomorrow": "Nic więcej na dziś - jutro: {{title}}"
     },
@@ -368,6 +374,13 @@
         "filterGroupPriority": "Priorytet",
         "filterGroupPerson": "Osoba",
         "filterGroupTag": "Tag",
+        "filterGroupCategory": "Kategoria",
+        "filterGroupDue": "Termin do",
+        "dueFilterToday": "Dziś",
+        "dueFilterDays": "{{days}} dni",
+        "dueFilterAny": "Dowolny",
+        "dueFilterDateLabel": "Termin do daty",
+        "dueFilterChip": "Termin: {{label}}",
         "filterClearAll": "Wyczyść wszystkie filtry",
         "navLabelOverdue": "Zadania, {{count}} przeterminowanych",
         "statusArchived": "Zarchiwizowane",

@@ -19,13 +19,16 @@ import { renderAvatarStack } from '/components/user-multi-select.js';
 import { isSoloHousehold } from '/utils/household.js';
 import {
   WIDGET_IDS, WIDGET_SIZE_PRESETS, WIDGET_SIZE_OPTIONS, DEFAULT_WIDGET_CONFIG,
-  COCKPIT_COVERED_WIDGETS,
+  COCKPIT_COVERED_WIDGETS, MEMBER_TASKS_FAMILY, UNASSIGNED_TASKS_WIDGET,
+  memberTaskWidgetId, memberTaskWidgetUserId, widgetFamily,
+  defaultWidgetConfig,
   nearestPreset, normalizeDashboardConfig, isUserOrderedConfig, sameWidgetConfig,
 } from '/utils/dashboard-widgets.js';
 import { whoMark } from '/utils/seal-pair.js';
 import { MODULE_ICON, moduleIconHTML } from '/nav-icons.js';
 import { exitWallMode, isWallActive, syncWallMode } from '/utils/wall-mode.js';
 import { rememberLayoutHint, layoutHintSizes } from '/utils/dashboard-layout-hint.js';
+import { askCompletedBy } from '/utils/completed-by.js';
 
 // Hält den AbortController des aktuellen FAB-Listeners - wird bei jedem render() erneuert.
 let _fabController = null;
@@ -265,6 +268,46 @@ function setCountdownAvailability(items) {
   countdownAvailable = Array.isArray(items) && visibleCountdowns(items).length > 0;
 }
 
+/* DAS MITGLIEDER-VERZEICHNIS, aus demselben Grund modulweit wie
+ * `countdownAvailable` darueber: hinter `tasks-u7` steht ein Name, und die
+ * beiden Stellen, die ihn brauchen - `widgetLabel` und die Ablage der
+ * versteckten Widgets - sehen `data` nicht. Eine Durchreichung durch jede
+ * Signatur dazwischen waere ein Parameter, den acht Funktionen nur
+ * weitergeben.
+ *
+ * Gaeste geteilter Ausgaben fallen hier heraus. `result.users` schliesst sie
+ * nicht aus (siehe die Notiz an der Abfrage in routes/dashboard.js) - solange
+ * daraus nur Avatarfarben wurden, fiel das niemandem auf; eine Rasterkachel je
+ * Zeile macht daraus einen fremden Menschen auf dem Familien-Dashboard.
+ *
+ * Wird bei jedem render() zurueckgesetzt und nach dem Laden gesetzt - ein
+ * Stand von vorhin darf keine Kachel versprechen. */
+let taskWidgetMembers = [];
+let taskWidgetMemberById = new Map();
+
+function setTaskWidgetMembers(users) {
+  taskWidgetMembers = (Array.isArray(users) ? users : [])
+    .filter((u) => u && u.access_scope !== 'split_guest');
+  taskWidgetMemberById = new Map(taskWidgetMembers.map((u) => [u.id, u]));
+}
+
+function taskWidgetMemberIds() {
+  return taskWidgetMembers.map((u) => u.id);
+}
+
+/**
+ * Ist diese Id im aktuellen Haushalt eine Kachel? Anders als
+ * `WIDGET_IDS.includes` beantwortet das auch die dynamischen Aufgaben-Ids -
+ * und es sagt Nein zur Familien-Id `tasks`, die seit dem Umbau keine eigene
+ * Kachel mehr ist.
+ */
+function isKnownWidgetId(id) {
+  if (id === UNASSIGNED_TASKS_WIDGET) return true;
+  const memberId = memberTaskWidgetUserId(id);
+  if (memberId !== null) return taskWidgetMemberById.has(memberId);
+  return id !== MEMBER_TASKS_FAMILY && WIDGET_IDS.includes(id);
+}
+
 // Aus welchem Modul ein Countdown stammt, entscheidet über ihn: wer den
 // Kalender abgeschaltet hat, soll dessen Einträge auch hier nicht sehen. Die
 // Kachel als Ganzes gehört keinem Modul (siehe PERMISSION_WIDGETS), ihre
@@ -285,20 +328,29 @@ function visibleCountdowns(items) {
 }
 
 function isWidgetModuleEnabled(id) {
-  const mod = MODULE_FOR_WIDGET[id];
+  // Ueber die Familie: Modul, Recht und Zeichen haengen an `tasks`, nicht an
+  // der einzelnen Mitglieder-Kachel. Eine Sperre trifft deshalb alle auf
+  // einmal - per Person laesst sich das nicht sperren, und soll es auch
+  // nicht: WER WAS SIEHT, beantwortet die Sichtbarkeit einer Aufgabe
+  // (services/visibility.js), nicht ein Widget-Recht.
+  // Ob die Id ueberhaupt zum Haushalt gehoert, wird hier NICHT geprueft -
+  // dafuer gibt es normalizeDashboardConfig, und zwei Instanzen derselben
+  // Regel liefen beim ersten Umbau auseinander.
+  const family = widgetFamily(id);
+  const mod = MODULE_FOR_WIDGET[family];
   if (mod && window.yuvomi?.isModuleDisabled(mod)) return false;
   // Rollen-/Mitglied-Rechte (#467): serverseitig gesperrtes Widget (bzw. Widget
   // eines Moduls ohne Zugriff — die Modulsperre wird bereits serverseitig auf die
   // Widget-Map durchgereicht) hier nicht anbieten.
-  if (!canSeeWidget(id)) return false;
+  if (!canSeeWidget(family)) return false;
   // Im Solo-Haushalt ist das Familien-Widget kein VERFUEGBARES Widget, kein
   // leer gerendertes. Der Unterschied ist die „Anpassen"-Ablage: ein Renderer,
   // der '' zurueckgibt, verschwindet aus dem Raster, bleibt aber `visible: true`
   // und taucht damit auch in der Ablage der versteckten Widgets nicht auf - es
   // waere aus der Oberflaeche heraus nicht mehr erreichbar. Hier faellt es aus
   // beiden Listen, so wie ein abgeschaltetes Modul auch.
-  if (id === 'family' && isSoloHousehold()) return false;
-  if (id === 'countdown' && !countdownAvailable) return false;
+  if (family === 'family' && isSoloHousehold()) return false;
+  if (family === 'countdown' && !countdownAvailable) return false;
   return true;
 }
 
@@ -308,6 +360,22 @@ function setHtml(element, html) {
 }
 
 function widgetLabel(id) {
+  /* Die Aufgaben-Kacheln heissen nach dem Menschen, dem sie gehoeren. Dasselbe
+   * Wort traegt der Kachelkopf, der Chip in der Ablage, die Beschriftungen im
+   * Anpassen-Modus („Aufgaben von Mia ausblenden") und die Fehlerkachel - ein
+   * Ding, ein Name.
+   * Im Solo-Haushalt heisst die eine Kachel schlicht „Aufgaben": „Aufgaben von
+   * Miriam" neben „Nicht zugewiesen" waere derselbe Fehler, den das
+   * Familien-Widget dort schon einmal gemacht hat - eine Beschriftung, deren
+   * einzige Aussage ist, dass jemand allein wohnt. */
+  if (id === UNASSIGNED_TASKS_WIDGET) return t('dashboard.unassignedTasks');
+  const memberId = memberTaskWidgetUserId(id);
+  if (memberId !== null) {
+    const member = taskWidgetMemberById.get(memberId);
+    if (!member) return t('nav.tasks');
+    if (taskWidgetMembers.length <= 1) return t('nav.tasks');
+    return t('dashboard.memberTasksWidget', { name: firstName(member.display_name) });
+  }
   const map = {
     tasks:    () => t('nav.tasks'),
     calendar: () => t('nav.calendar'),
@@ -336,7 +404,7 @@ function widgetLabel(id) {
  * der vier Dashboard-eigenen Karten (Wetter, Uhr, Kennzahlen, Countdown), die
  * keine Module sind, aber dieselbe Absender-Rolle im Kopf tragen. */
 function widgetIcon(id) {
-  return MODULE_ICON[id] ?? MODULE_ICON.dashboard;
+  return MODULE_ICON[widgetFamily(id)] ?? MODULE_ICON.dashboard;
 }
 
 const BUDGET_CATEGORY_LABEL_KEYS = {
@@ -807,34 +875,80 @@ function skeletonWidget(lines = 3) {
 // Widget-Renderer
 // --------------------------------------------------------
 
-function renderUrgentTasks(tasks) {
-  if (!tasks.length) {
+/**
+ * Die Aufgaben eines Menschen - oder das, was niemandem gehoert.
+ *
+ * `member === null` ist die Sammelkachel „Nicht zugewiesen". Sie ist eine
+ * gewoehnliche, immer verfuegbare Kachel und ausdruecklich NICHT nach dem
+ * Muster des Countdowns gebaut, der verschwindet, solange es nichts zu zeigen
+ * gibt: „nicht zugewiesen" ist ein dauerhafter Eimer, kein Zustand. Eine
+ * Kachel, die beim Zuweisen der letzten Aufgabe aus dem Raster faellt und beim
+ * Anlegen der naechsten zurueckspringt, waere ein flackerndes Layout. Wer sie
+ * nicht braucht, blendet sie einmal aus.
+ *
+ * @param {object|null} member  Zeile aus `data.users`, oder null
+ * @param {object} data         Dashboard-Payload
+ * @param {string} size         Groessenklasse der Kachel (steuert die Zeilenzahl)
+ */
+function renderTaskBucketWidget(member, data, size) {
+  const id = member ? memberTaskWidgetId(member.id) : UNASSIGNED_TASKS_WIDGET;
+  const title = widgetLabel(id);
+  const bucket = (Array.isArray(data?.tasksByAssignee) ? data.tasksByAssignee : [])
+    .find((b) => (member ? b.user_id === member.id : b.user_id == null));
+  const rows = (bucket?.tasks ?? []).slice(0, listRowCap(size));
+
+  /* DIE ZAHL IM KOPF IST DER WAHRE STAND, NICHT DIE ZAHL DER ZEILEN.
+   * Hier stand `tasks.length`, und weil der Server bei fuenf abschneidet, sagte
+   * der Kopf „5", solange zwoelf offen waren. Dieselbe Falle wie bei
+   * pinnedNotesCount und birthdayCount (routes/dashboard.js): eine Zahl, die
+   * genau bis zu ihrer Obergrenze stimmt, ist die gefaehrlichste Sorte.
+   * `renderUpcomingBirthdays` weiter unten macht bewusst das GEGENTEIL und
+   * zaehlt die gezeigten Zeilen - das ist kein Widerspruch, sondern eine
+   * andere Frage: dort steht die Zahl fuer „so viele stehen hier", hier fuer
+   * „so viel ist offen". */
+  const openCount = Number(bucket?.open_count) || 0;
+
+  if (!rows.length) {
+    /* Leer heisst leer gerendert, NICHT '' zurueckgeben: eine Kachel, deren
+     * Renderer '' liefert, verschwindet aus dem Raster, bleibt aber
+     * `visible: true` und taucht damit auch in der Ablage der versteckten
+     * Widgets nicht auf - sie waere aus der Oberflaeche heraus nicht mehr
+     * erreichbar. Das hat das Familien-Widget schon einmal gekostet. */
     return `<div class="widget widget--tasks">
-      ${widgetHeader('tasks', t('nav.tasks'), 0, '/tasks')}
+      ${widgetHeader(id, title, 0, '/tasks')}
       <div class="widget__empty">
         <i data-lucide="check-circle" class="empty-state__icon" style="color:var(--color-success)" aria-hidden="true"></i>
-        <div>${t('dashboard.allDone')}</div>
+        <div>${member ? t('dashboard.allDone') : t('dashboard.unassignedTasksEmpty')}</div>
       </div>
     </div>`;
   }
 
-  const items = tasks.map((t) => {
-    const due = formatDueDate(t.due_date, t.due_time);
+  const items = rows.map((task) => {
+    const due = formatDueDate(task.due_date, task.due_time);
+    const shared = (task.assigned_users ?? []).length;
+    /* Der Avatar-Stapel spricht nur, wenn er etwas zu sagen hat: in der Kachel
+     * eines Menschen wiederholt ein einzelner Avatar nur die Ueberschrift.
+     * Bei mehreren Zustaendigen ist er das einzige Zeichen dafuer, dass die
+     * Aufgabe geteilt ist - und geteilte Aufgaben stehen seit dem Umbau in
+     * MEHREREN Kacheln, also braucht die Zeile diesen Hinweis. */
+    const avatars = (member ? shared > 1 : shared > 0)
+      ? renderAvatarStack(task.assigned_users ?? [], { size: 28 })
+      : '';
     return `
-      <div class="task-item" data-task-id="${t.id}" data-task-title="${esc(t.title)}" role="button" tabindex="0">
-        ${t.priority !== 'none' ? `<div class="task-item__priority task-item__priority--${t.priority}" title="${esc(PRIORITY_LABELS()[t.priority] ?? t.priority)}" aria-hidden="true"></div>` : ''}
-        <span class="sr-only">${PRIORITY_LABELS()[t.priority] ?? t.priority}</span>
+      <div class="task-item" data-task-id="${task.id}" data-task-title="${esc(task.title)}" role="button" tabindex="0">
+        ${task.priority !== 'none' ? `<div class="task-item__priority task-item__priority--${task.priority}" title="${esc(PRIORITY_LABELS()[task.priority] ?? task.priority)}" aria-hidden="true"></div>` : ''}
+        <span class="sr-only">${PRIORITY_LABELS()[task.priority] ?? task.priority}</span>
         <div class="task-item__content">
-          <div class="task-item__title">${esc(t.title)}</div>
+          <div class="task-item__title">${esc(task.title)}</div>
           ${due ? `<div class="task-item__meta ${due.overdue ? 'task-item__meta--overdue' : ''} ${due.soon ? 'task-item__meta--soon' : ''}">${due.text}</div>` : ''}
         </div>
-        ${renderAvatarStack(t.assigned_users ?? [], { size: 28 })}
+        ${avatars}
       </div>
     `;
   }).join('');
 
   return `<div class="widget widget--tasks">
-    ${widgetHeader('tasks', t('nav.tasks'), tasks.length, '/tasks')}
+    ${widgetHeader(id, title, openCount, '/tasks')}
     <div class="widget__body">${items}</div>
   </div>`;
 }
@@ -1880,7 +1994,20 @@ function buildTodayCockpitModel(data, cfg = [], { cap = PROGRAM_ROW_CAP } = {}) 
   // Kein Echo: ist das Modul-Widget einer Domäne sichtbar, entfallen ihre
   // Programm-Zeilen — jede Domäne hat genau eine Repräsentation (Cockpit ODER
   // Widget), statt dieselbe Aufgabe/Termin doppelt zu zeigen.
-  const widgetShown = (id) => Array.isArray(cfg) && cfg.some((w) => w.id === id && w.visible);
+  /* DOMAENE, NICHT ID. Seit die Aufgaben eine Kachel JE MITGLIED haben, heisst
+   * „das Aufgaben-Widget steht schon da" nicht mehr „eine Kachel heisst
+   * `tasks`". `widgetFamily` bildet `tasks-u7` und `tasks-unassigned` auf
+   * `tasks` ab; ohne das bliebe `includeTasks` wahr und jede Aufgabe stuende
+   * doppelt auf dem Schirm - einmal im Tagesprogramm, einmal in der Kachel
+   * ihres Menschen.
+   *
+   * `isWidgetModuleEnabled` gehoert mit in die Bedingung, und das war schon
+   * vorher falsch: eine Kachel, die per Widget-Recht (#467) gesperrt ist,
+   * steht mit `visible: true` in der gespeicherten Konfiguration und wird doch
+   * nie gezeichnet. Sie brachte damit das Cockpit zum Schweigen, und der
+   * Betrachter sah seine Aufgaben NIRGENDS. */
+  const widgetShown = (id) => Array.isArray(cfg)
+    && cfg.some((w) => widgetFamily(w.id) === id && w.visible && isWidgetModuleEnabled(w.id));
   const domainInCockpit = (module) => !window.yuvomi?.isModuleDisabled(module) && !widgetShown(module);
 
   const includeTasks = domainInCockpit('tasks');
@@ -2148,7 +2275,10 @@ function renderWidgetCustomizeControls(w, index = 0, total = 1) {
 // Klick zurückholen — so ist der Inline-Editor allein vollständig (Zeigen +
 // Verstecken + Größe + Reihenfolge) und das frühere zweite Editor-Modal entfällt.
 function renderHiddenWidgetsTray(cfg, glanceHidden = false) {
-  const hidden = cfg.filter((w) => !w.visible && WIDGET_IDS.includes(w.id) && isWidgetModuleEnabled(w.id));
+  // `isKnownWidgetId` statt `WIDGET_IDS.includes`: die Mitglieder-Kacheln
+  // stehen nicht in der statischen Liste, und ohne sie waere eine einmal
+  // ausgeblendete Person hier nicht mehr zurueckzuholen.
+  const hidden = cfg.filter((w) => !w.visible && isKnownWidgetId(w.id) && isWidgetModuleEnabled(w.id));
   if (!hidden.length && !glanceHidden) return '';
   // Das Kopfband steht mit in dieser Leiste, obwohl es keine Rasterkachel ist:
   // ausgeblendet waere es sonst nur ueber „Zuruecksetzen" zurueckzuholen.
@@ -2176,7 +2306,6 @@ function renderHiddenWidgetsTray(cfg, glanceHidden = false) {
 
 function renderDashboardLayout(cfg, data, weather, currency, { editing = false, visibleMealTypes = MEAL_ORDER, glanceHidden = false } = {}) {
   const widgetById = {
-    tasks: () => renderUrgentTasks(data.urgentTasks ?? []),
     calendar: () => renderUpcomingEvents(data.upcomingEvents ?? []),
     birthdays: (size) => renderUpcomingBirthdays(data.birthdays ?? [], size),
     countdown: (size) => renderCountdowns(data.countdowns ?? [], size, data.countdownTotal),
@@ -2197,12 +2326,29 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false, 
     // die beiden nicht auseinanderlaufen; `metrics` selbst ist ausgenommen, es
     // waere sonst sein eigener Grund zu schweigen.
     metrics: () => renderMetricTiles(data, currency, new Set(
-      cfg.filter((w) => w.visible && w.id !== 'metrics' && isWidgetModuleEnabled(w.id)).map((w) => w.id),
+      // Ueber die Familie: eine sichtbare Mitglieder-Kachel ist eine sichtbare
+      // Aufgaben-Kachel, also schweigt die Kennzahl-Kachel „Aufgaben".
+      cfg.filter((w) => w.visible && w.id !== 'metrics' && isWidgetModuleEnabled(w.id)).map((w) => widgetFamily(w.id)),
     )),
   };
 
+  /* Die Aufgaben-Kacheln stehen nicht in der Tabelle darueber: es gibt sie
+   * erst, wenn der Haushalt seine Mitglieder kennt. Ein exakter
+   * Schluesselzugriff findet sie nie - deshalb dieser Aufloeser davor. */
+  const rendererFor = (id) => {
+    if (id === UNASSIGNED_TASKS_WIDGET) {
+      return (size) => renderTaskBucketWidget(null, data, size);
+    }
+    const memberId = memberTaskWidgetUserId(id);
+    if (memberId !== null) {
+      const member = taskWidgetMemberById.get(memberId);
+      return member ? (size) => renderTaskBucketWidget(member, data, size) : null;
+    }
+    return widgetById[id] ?? null;
+  };
+
   const tiles = cfg
-    .filter((w) => w.visible && widgetById[w.id] && isWidgetModuleEnabled(w.id))
+    .filter((w) => w.visible && rendererFor(w.id) && isWidgetModuleEnabled(w.id))
     .map((w, index, arr) => {
       // Widget-weise Fehler-Isolation: wirft ein einzelner Renderer (kaputtes oder
       // fehlendes Daten-Slice), fällt nur dieses Widget auf eine ruhige Inline-
@@ -2214,7 +2360,7 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false, 
         // damit ihre Zeilenzahl (listRowCap). Renderer, die sie nicht brauchen,
         // ignorieren das Argument - eine zweite Dispatch-Tabelle fuer „die mit
         // Groesse" waere beim naechsten Widget wieder unvollstaendig.
-        html = widgetById[w.id](w.size);
+        html = rendererFor(w.id)(w.size);
       } catch (err) {
         console.error(`[dashboard] Widget "${w.id}" konnte nicht gerendert werden`, err);
         html = renderWidgetError(w.id);
@@ -2238,7 +2384,7 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false, 
   `;
   // Beim Bearbeiten und bei bewusst umsortierten Layouts die Quellordnung bewahren
   // (kein dense-Umpacken); der Autor-Default darf dicht packen.
-  const preserveOrder = (editing || isUserOrderedConfig(cfg)) ? ' dashboard__grid--preserve-order' : '';
+  const preserveOrder = (editing || isUserOrderedConfig(cfg, taskWidgetMemberIds())) ? ' dashboard__grid--preserve-order' : '';
   const grid = `<div class="dashboard__grid ${editing ? 'dashboard__grid--editing' : ''}${preserveOrder}" id="dashboard-widget-grid">${gridInner}</div>`;
   // Im Bearbeiten-Modus folgt die Wieder-Einblenden-Leiste dem Grid, damit
   // ausgeblendete Widgets nicht in einer Sackgasse verschwinden.
@@ -2261,6 +2407,17 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false, 
  * Abmelden verworfen werden muss - die Begruendung steht dort. */
 
 function renderDashboardSkeleton() {
+  /* HIER IST DAS VERSPRECHEN OBEN SEIT DEN MITGLIEDER-KACHELN EINE NAEHERUNG,
+   * und zwar genau in einem Fall: beim allerersten Laden auf einem Geraet.
+   * Der Hinweis aus `layoutHintSizes` traegt die tatsaechlich gerenderten
+   * Kachelformen und kennt die Mitglieder-Kacheln also; nur sein Rueckfall
+   * `DEFAULT_WIDGET_CONFIG` kennt sie nicht - er hat die statischen Ids und
+   * die Sammelkachel, aber keine Person.
+   * Die Abweichung geht in die harmlose Richtung: das Skelett zeigt WENIGER
+   * Kacheln als das Ergebnis, es waechst also, statt dass etwas verschwindet.
+   * Die Mitgliederzahl im Hinweis mitzuspeichern waere eine zweite, schwaechere
+   * Vorhersage neben einer, die die Antwort schon genau vorhersagt - und der
+   * Hinweis liegt pro GERAET, die Mitglieder gelten pro Haushalt. */
   const tiles = layoutHintSizes(DEFAULT_WIDGET_CONFIG.filter((w) => w.visible).map((w) => w.size))
     .map((size) => `<div class="widget-wrapper ${widgetSizeClass(size)}">${skeletonWidget(3)}</div>`)
     .join('');
@@ -3143,7 +3300,11 @@ function openTaskQuickAction(taskId, taskTitle, rerender) {
     onSave: (panel) => {
       panel.querySelector('[data-action="done"]').addEventListener('click', async () => {
         try {
-          await api.patch(`/tasks/${taskId}/status`, { status: 'done' });
+          // overModal: this button lives inside the quick-action modal, and
+          // asking through openModal would tear that modal down underneath it.
+          const who = await askCompletedBy({ overModal: true });
+          if (who === null) return;
+          await api.patch(`/tasks/${taskId}/status`, { status: 'done', completed_by: who });
           closeModal({ force: true });
           window.yuvomi?.showToast(t('tasks.swipedDoneToast'), 'success');
           rerender();
@@ -3309,10 +3470,11 @@ export async function render(container, { user }) {
     ${wallMode ? '' : renderFab()}
   `);
 
-  let data         = { upcomingEvents: [], urgentTasks: [], todayMeals: [], pinnedNotes: [], shoppingLists: [], birthdays: [], countdowns: [], users: [], budget: {}, rewards: {}, health: {}, housekeeping: {} };
+  let data         = { upcomingEvents: [], urgentTasks: [], tasksByAssignee: [], todayMeals: [], pinnedNotes: [], shoppingLists: [], birthdays: [], countdowns: [], users: [], budget: {}, rewards: {}, health: {}, housekeeping: {} };
   // Ein Stand von vorhin darf keine Kachel versprechen: erst nach dem Laden
   // wieder wahr (siehe die Notiz an `countdownAvailable`).
   setCountdownAvailability([]);
+  setTaskWidgetMembers([]);
   let weather      = null;
   let weatherAutoLocate = false;
   let widgetConfig = DEFAULT_WIDGET_CONFIG;
@@ -3349,9 +3511,15 @@ export async function render(container, { user }) {
       data.upcomingEvents = data.upcomingEvents.map(localizeBirthdayEvent);
     }
     setCountdownAvailability(data?.countdowns);
+    // Vor normalizeDashboardConfig: die Mitglieder entscheiden, welche
+    // Aufgaben-Kacheln es in diesem Haushalt ueberhaupt gibt.
+    setTaskWidgetMembers(data?.users);
     weather      = weatherRes.data ?? null;
     weatherAutoLocate = Boolean(prefsRes.data?.weather_user?.auto_locate ?? prefsRes.data?.weather_auto_locate);
-    widgetConfig = normalizeDashboardConfig(prefsRes.data?.dashboard_widgets ?? DEFAULT_WIDGET_CONFIG);
+    widgetConfig = normalizeDashboardConfig(
+      prefsRes.data?.dashboard_widgets ?? defaultWidgetConfig(taskWidgetMemberIds()),
+      taskWidgetMemberIds(),
+    );
     savedWidgetConfig = widgetConfig.map((w) => ({ ...w }));
     glanceVisible = prefsRes.data?.dashboard_today_glance !== false;
     savedGlanceVisible = glanceVisible;
@@ -3457,7 +3625,10 @@ export async function render(container, { user }) {
       detail: t('dashboard.customizeResetDetail'),
     });
     if (!confirmed) return;
-    widgetConfig = DEFAULT_WIDGET_CONFIG.map((w) => ({ ...w }));
+    // Mit den Mitgliedern, nicht ohne: `DEFAULT_WIDGET_CONFIG` kennt nur die
+    // statischen Ids, „Zuruecksetzen" haette damit jede Mitglieder-Kachel
+    // geloescht.
+    widgetConfig = defaultWidgetConfig(taskWidgetMemberIds()).map((w) => ({ ...w }));
     glanceVisible = true;
     rebuildDashboard(widgetConfig);
   }
@@ -3790,7 +3961,7 @@ export async function render(container, { user }) {
   }
 }
 
-export const __test = { buildTodayHighlights, buildTodayProgram, buildTodayCockpitModel, renderTodayCockpit, renderPinnedNotes, renderFamilyWidget, formatDueDate, normalizeVisibleMealTypes, renderTodayMeals, calendarEventRoute, eventOccurrenceDateKey, eventStartDate, renderWallSurface, renderWallWho, selectMetricTiles, METRIC_TILE_ORDER, PROGRAM_ROW_CAP, WALL_ROW_CAP, weatherToneKey, weatherMotionAttr, weatherTempBand, weatherSpanModel };
+export const __test = { renderTaskBucketWidget, setTaskWidgetMembers, isKnownWidgetId, buildTodayHighlights, buildTodayProgram, buildTodayCockpitModel, renderTodayCockpit, renderPinnedNotes, renderFamilyWidget, formatDueDate, normalizeVisibleMealTypes, renderTodayMeals, calendarEventRoute, eventOccurrenceDateKey, eventStartDate, renderWallSurface, renderWallWho, selectMetricTiles, METRIC_TILE_ORDER, PROGRAM_ROW_CAP, WALL_ROW_CAP, weatherToneKey, weatherMotionAttr, weatherTempBand, weatherSpanModel };
 
 function wireWeatherRefresh(container, onUpdated = null) {
   const refreshBtn = container.querySelector('#weather-refresh-btn');

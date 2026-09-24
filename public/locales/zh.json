@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "这项任务是谁完成的？",
+        "completedByBulkTitle": "这些任务是谁完成的？",
+        "completedByLabel": "完成者",
         "swipeSidesSwapped": "滑动方向已互换，主要操作现在位于另一侧。",
         "apply": "添加",
         "searchClear": "清除搜索",
@@ -270,6 +273,9 @@
         "todayMore_one": "另有{{count}}项",
         "memberOpenTasks": "{{count}}项任务",
         "memberOpenTasks_one": "{{count}}项任务",
+        "memberTasksWidget": "{{name}} 的任务",
+        "unassignedTasks": "未分配",
+        "unassignedTasksEmpty": "全部已分配",
         "manage": "管理",
         "todayNothingElseTomorrow": "今天没有其他安排了。明天：{{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "清除所有筛选",
         "filterGroupPerson": "人员",
         "filterGroupTag": "标签",
+        "filterGroupCategory": "分类",
+        "filterGroupDue": "截止于",
+        "dueFilterToday": "今天",
+        "dueFilterDays": "{{days}} 天内",
+        "dueFilterAny": "不限",
+        "dueFilterDateLabel": "截止日期",
+        "dueFilterChip": "截止：{{label}}",
         "filterGroupPriority": "优先级",
         "filterGroupStatus": "状态",
         "swipedDoneToast": "已标记为完成。",

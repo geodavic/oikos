@@ -59,7 +59,7 @@ function avatarEditorHtml(user, prefix) {
       <button type="button" class="settings-avatar-button" id="${prefix}-avatar-preview" aria-label="${t('settings.profilePictureLabel')}">
         ${avatarHtml(user, 'settings-avatar settings-avatar--lg')}
       </button>
-      <input class="sr-only" type="file" id="${prefix}-avatar-file" accept="image/png,image/jpeg,image/webp" />
+      <input class="sr-only" type="file" id="${prefix}-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" />
       <div class="settings-avatar-actions">
         <button type="button" class="settings-avatar-action" id="${prefix}-avatar-edit" aria-label="${t('settings.profilePictureLabel')}" title="${t('settings.profilePictureLabel')}">
           <i data-lucide="edit-2" aria-hidden="true"></i>
@@ -91,28 +91,8 @@ function bindAvatarPicker(container, prefix) {
 }
 
 async function readImageAsDataUrl(file) {
-  if (!file) return undefined;
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    throw new Error(t('settings.profilePictureTypeError'));
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error(t('settings.profilePictureFileTooLarge'));
-  }
-
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error(t('settings.profilePictureReadError')));
-    reader.readAsDataURL(file);
-  });
-
-  const { openCropDialog } = await import('/utils/avatar-crop.js');
-  const cropped = await openCropDialog(dataUrl);
-  if (cropped === null) return undefined;
-  if (cropped.length > MAX_AVATAR_DATA_LENGTH) {
-    throw new Error(t('settings.profilePictureTooLarge'));
-  }
-  return cropped;
+  const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+  return pickCroppedImage(file, { maxLength: MAX_AVATAR_DATA_LENGTH });
 }
 
 function memberHtml(u, currentUserId) {

@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Siapa yang menyelesaikan ini?",
+        "completedByBulkTitle": "Siapa yang menyelesaikan ini semua?",
+        "completedByLabel": "Diselesaikan oleh",
         "swipeSidesSwapped": "Arah geser telah ditukar - tindakan utama kini ada di sisi lain.",
         "apply": "Tambahkan",
         "searchClear": "Hapus pencarian",
@@ -282,6 +285,9 @@
         "todayMore_one": "+{{count}} lagi hari ini",
         "memberOpenTasks": "{{count}} tugas",
         "memberOpenTasks_one": "{{count}} tugas",
+        "memberTasksWidget": "Tugas {{name}}",
+        "unassignedTasks": "Belum ditugaskan",
+        "unassignedTasksEmpty": "Semua sudah ditugaskan",
         "manage": "Kelola",
         "todayNothingElseTomorrow": "Tidak ada lagi hari ini - besok: {{title}}"
     },
@@ -368,6 +374,13 @@
         "filterGroupPriority": "Prioritas",
         "filterGroupPerson": "Orang",
         "filterGroupTag": "Tag",
+        "filterGroupCategory": "Kategori",
+        "filterGroupDue": "Jatuh tempo sampai",
+        "dueFilterToday": "Hari ini",
+        "dueFilterDays": "{{days}} hari",
+        "dueFilterAny": "Kapan saja",
+        "dueFilterDateLabel": "Jatuh tempo sampai tanggal",
+        "dueFilterChip": "Jatuh tempo: {{label}}",
         "filterClearAll": "Atur ulang semua filter",
         "navLabelOverdue": "Tugas, {{count}} terlambat",
         "statusArchived": "Diarsipkan",

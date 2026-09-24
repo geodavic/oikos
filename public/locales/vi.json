@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Ai đã hoàn thành việc này?",
+        "completedByBulkTitle": "Ai đã hoàn thành những việc này?",
+        "completedByLabel": "Hoàn thành bởi",
         "swipeSidesSwapped": "Các hướng vuốt đã được hoán đổi - hành động chính giờ nằm ở phía bên kia.",
         "apply": "Thêm",
         "searchClear": "Xóa tìm kiếm",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} mục nữa hôm nay",
         "memberOpenTasks": "{{count}} việc",
         "memberOpenTasks_one": "{{count}} việc",
+        "memberTasksWidget": "Công việc của {{name}}",
+        "unassignedTasks": "Chưa giao",
+        "unassignedTasksEmpty": "Đã giao tất cả",
         "manage": "Quản lý",
         "todayNothingElseTomorrow": "Hôm nay không còn gì khác - ngày mai: {{title}}"
     },
@@ -370,6 +376,13 @@
         "filterClearAll": "Xóa tất cả các bộ lọc",
         "filterGroupPerson": "Người",
         "filterGroupTag": "Thẻ",
+        "filterGroupCategory": "Danh mục",
+        "filterGroupDue": "Hạn đến",
+        "dueFilterToday": "Hôm nay",
+        "dueFilterDays": "{{days}} ngày",
+        "dueFilterAny": "Bất kỳ lúc nào",
+        "dueFilterDateLabel": "Hạn đến ngày",
+        "dueFilterChip": "Hạn: {{label}}",
         "filterGroupPriority": "Độ ưu tiên",
         "filterGroupStatus": "Trạng thái",
         "swipedDoneToast": "Đã đánh dấu là hoàn thành.",

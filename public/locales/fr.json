@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Qui a fait cette tâche ?",
+        "completedByBulkTitle": "Qui a fait ces tâches ?",
+        "completedByLabel": "Réalisé par",
         "swipeSidesSwapped": "Les directions de balayage ont été inversées - l'action principale se trouve maintenant de l'autre côté.",
         "apply": "Ajouter",
         "searchClear": "Effacer la recherche",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} de plus aujourd'hui",
         "memberOpenTasks": "{{count}} tâches",
         "memberOpenTasks_one": "{{count}} tâche",
+        "memberTasksWidget": "Tâches de {{name}}",
+        "unassignedTasks": "Non attribuées",
+        "unassignedTasksEmpty": "Tout est attribué",
         "manage": "Gérer",
         "todayNothingElseTomorrow": "Plus rien d'autre aujourd'hui - demain : {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "Effacer tous les filtres",
         "filterGroupPerson": "Personne",
         "filterGroupTag": "Étiquette",
+        "filterGroupCategory": "Catégorie",
+        "filterGroupDue": "Échéance avant",
+        "dueFilterToday": "Aujourd'hui",
+        "dueFilterDays": "{{days}} jours",
+        "dueFilterAny": "N'importe quand",
+        "dueFilterDateLabel": "Échéance avant la date",
+        "dueFilterChip": "Échéance : {{label}}",
         "filterGroupPriority": "Priorité",
         "filterGroupStatus": "Statut",
         "swipedDoneToast": "Marqué comme terminé.",

@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Wer hat das erledigt?",
+        "completedByBulkTitle": "Wer hat diese erledigt?",
+        "completedByLabel": "Erledigt von",
         "swipeSidesSwapped": "Die Wischrichtungen wurden getauscht - die Hauptaktion liegt jetzt auf der anderen Seite.",
         "apply": "Übernehmen",
         "searchClear": "Suche leeren",
@@ -282,6 +285,9 @@
         "todayMore_one": "+{{count}} weiterer heute",
         "memberOpenTasks": "{{count}} Aufgaben",
         "memberOpenTasks_one": "{{count}} Aufgabe",
+        "memberTasksWidget": "Aufgaben von {{name}}",
+        "unassignedTasks": "Nicht zugewiesen",
+        "unassignedTasksEmpty": "Alles zugewiesen",
         "manage": "Verwalten",
         "todayNothingElseTomorrow": "Danach steht heute nichts mehr an - morgen: {{title}}"
     },
@@ -368,6 +374,13 @@
         "filterGroupPriority": "Priorität",
         "filterGroupPerson": "Person",
         "filterGroupTag": "Tag",
+        "filterGroupCategory": "Kategorie",
+        "filterGroupDue": "Fällig bis",
+        "dueFilterToday": "Heute",
+        "dueFilterDays": "{{days}} Tage",
+        "dueFilterAny": "Jederzeit",
+        "dueFilterDateLabel": "Fällig bis Datum",
+        "dueFilterChip": "Fällig: {{label}}",
         "filterClearAll": "Alle Filter zurücksetzen",
         "navLabelOverdue": "Aufgaben, {{count}} überfällig",
         "statusArchived": "Archiviert",

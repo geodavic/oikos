@@ -97,6 +97,7 @@ const APP_SHELL = [
   '/utils/bulk-pill.js',
   '/utils/category-labels.js',
   '/utils/color.js',
+  '/utils/completed-by.js',
   '/utils/contact-name.js',
   '/utils/contrast.js',
   '/utils/countdown.js',

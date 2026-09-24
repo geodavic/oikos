@@ -11,6 +11,14 @@ const MAX_SHORT    = 100;
 const MAX_RRULE    = 300;
 const MAX_URL      = 2000;
 
+// Bild-Uploads (Data-URL) - Geburtstags-Fotos und Inventar-Fotos teilen dieselbe
+// Grenze. MAX_PHOTO_BYTES ist die Rohbildgröße; Base64 bläht sie um 4/3 auf, das
+// Data-URL-Präfix (`data:image/jpeg;base64,`) kommt oben drauf. Wer das erhöht,
+// muss auch JSON_BODY_LIMIT in server/index.js mitziehen - sonst greift vorher
+// der 413 des Body-Parsers und die Route sieht die Anfrage nie.
+const MAX_PHOTO_BYTES  = 12 * 1024 * 1024;
+const MAX_PHOTO_LENGTH = Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 64;
+
 // Regex-Muster
 const DATE_RE     = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE     = /^\d{2}:\d{2}$/;
@@ -235,6 +243,6 @@ function bool(val, field) {
 
 export {
   str, oneOf, date, time, datetime, month, num, color, url, rrule, id, bool, collectErrors,
-  MAX_TITLE, MAX_TEXT, MAX_SHORT, MAX_RRULE, MAX_URL,
+  MAX_TITLE, MAX_TEXT, MAX_SHORT, MAX_RRULE, MAX_URL, MAX_PHOTO_BYTES, MAX_PHOTO_LENGTH,
   DATE_RE, TIME_RE, DATETIME_RE, COLOR_RE, MONTH_RE,
 };

@@ -12,6 +12,7 @@ import { openModal, closeModal, confirmModal } from '/components/modal.js';
 import { createPageFab, setPageFabAction } from '/utils/fab.js';
 import { wireTablist } from '/utils/tablist.js';
 import { amountPlaceholder, amountStep, amountIsSavable, smallestUnitLabel } from '/utils/money.js';
+import { askCompletedBy } from '/utils/completed-by.js';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -389,7 +390,9 @@ function renderTasks(content) {
       <div class="housekeeping-task__body">
         <h2>${esc(task.name)}</h2>
         <p>${esc(task.area)} · ${esc(t('housekeeping.everyDays', { days: task.frequency_days }))}</p>
-        <span>${esc(urgencyLabel(task.urgency_status))}</span>
+        <span>${esc(urgencyLabel(task.urgency_status))}${task.last_completed_by_name
+          ? ` · ${esc(t('common.completedByLabel'))} ${esc(task.last_completed_by_name)}`
+          : ''}</span>
       </div>
       <div class="housekeeping-task__actions row-actions">
         ${task.last_completed ? `
@@ -475,7 +478,12 @@ function renderTasks(content) {
   content.querySelectorAll('[data-complete-task]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       try {
-        await api.post(`/housekeeping/decay-tasks/${btn.dataset.completeTask}/complete`, {});
+        // Decay chores have no assignee, so there is nothing to preselect - and
+        // no reward ledger either, which makes this name the only record that
+        // anyone in particular kept the area up.
+        const who = await askCompletedBy();
+        if (who === null) return;
+        await api.post(`/housekeeping/decay-tasks/${btn.dataset.completeTask}/complete`, { completed_by: who });
         window.yuvomi?.showToast(t('housekeeping.taskDoneToast'), 'success');
         await loadData();
         renderTasks(content);
@@ -1027,7 +1035,7 @@ function openStaffModal(worker, content, options = {}) {
                   style="background:${esc(item.avatar_color) || 'var(--module-housekeeping)'}" aria-label="${esc(t('housekeeping.profilePicture'))}">
             ${item.avatar_data ? `<img src="${esc(item.avatar_data)}" alt="${esc(item.display_name || '')}">` : esc(initials(item.display_name || 'HK'))}
           </button>
-          <input class="sr-only" type="file" id="housekeeping-avatar-file" accept="image/png,image/jpeg,image/webp">
+          <input class="sr-only" type="file" id="housekeeping-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif">
           <div class="housekeeping-profile-editor__fields">
             <label class="housekeeping-field">
               <span>${esc(t('housekeeping.workerName'))}</span>
@@ -1187,19 +1195,17 @@ function openStaffModal(worker, content, options = {}) {
     const file = avatarFile.files?.[0];
     if (!file) return;
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.addEventListener('load', () => resolve(String(reader.result || '')));
-        reader.addEventListener('error', () => reject(new Error()));
-        reader.readAsDataURL(file);
-      });
-      const { openCropDialog } = await import('/utils/avatar-crop.js');
-      const cropped = await openCropDialog(dataUrl);
+      const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+      const cropped = await pickCroppedImage(file);
       if (!cropped) { avatarFile.value = ''; return; }
       state.workerAvatar = cropped;
       avatarButton.replaceChildren();
       avatarButton.insertAdjacentHTML('beforeend', `<img src="${esc(state.workerAvatar)}" alt="">`);
-    } catch {
+    } catch (err) {
+      // Bisher verschluckt: Typ- und Größenfehler landeten stumm im leeren
+      // catch, das Feld wurde nur zurückgesetzt. Jetzt trägt der Fehler eine
+      // übersetzte Meldung, also zeigen wir sie auch.
+      window.yuvomi?.showToast(err.message, 'danger');
       avatarFile.value = '';
     }
   });

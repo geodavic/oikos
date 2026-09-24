@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Ticking a task off asks who did it, and the points follow that answer.** The reward points went to whoever the task was *assigned* to, which is the wrong person in the case a shared wall tablet produces every day: a parent doing a child's chore and ticking it off paid the child, and nothing anywhere recorded who had actually done the work. Completing a task now asks which household member did it, on every surface that can complete one - the list checkbox, the swipe, the detail view, the status dropdown in the edit dialog, both kanban gestures, the overview widget, subtask checkboxes, and "mark done" on a multiple selection, which asks once for the whole batch. The assignee leads the list and is preselected, so the ordinary case is still one tap; answering with Cancel leaves the task open rather than completing it unattributed. If the person named does not take part in the points system, nobody is credited - paying the assignee instead would be the original mistake wearing a new name. The name is shown on the task under "assigned to" and is cleared again when a task is reopened, along with its points. Housekeeping chores ask the same question: having neither an assignee nor points, the name is the only record that anyone in particular kept the area up. In a household of one the question is not asked at all, for the same reason the visibility selector is not shown there. Existing completed tasks keep no name - the information was never collected, and a guess in a place people read as a fact would be worse than a blank.
+
 ## [2.21.1] - 2026-08-18
 
 ### Fixed

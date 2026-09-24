@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Sino ang tumapos nito?",
+        "completedByBulkTitle": "Sino ang tumapos ng mga ito?",
+        "completedByLabel": "Tinapos ni",
         "swipeSidesSwapped": "Napagpalit ang mga direksyon ng pag-swipe - nasa kabilang panig na ang pangunahing aksyon.",
         "apply": "Idagdag",
         "searchClear": "I-clear ang paghahanap",
@@ -282,6 +285,9 @@
         "todayMore_one": "+{{count}} pa ngayon",
         "memberOpenTasks": "{{count}} gawain",
         "memberOpenTasks_one": "{{count}} gawain",
+        "memberTasksWidget": "Mga gawain ni {{name}}",
+        "unassignedTasks": "Hindi nakatalaga",
+        "unassignedTasksEmpty": "Nakatalaga na ang lahat",
         "manage": "Pamahalaan",
         "todayNothingElseTomorrow": "Wala nang iba ngayon - bukas: {{title}}"
     },
@@ -368,6 +374,13 @@
         "filterGroupPriority": "Prayoridad",
         "filterGroupPerson": "Tao",
         "filterGroupTag": "Tag",
+        "filterGroupCategory": "Kategorya",
+        "filterGroupDue": "Due hanggang",
+        "dueFilterToday": "Ngayon",
+        "dueFilterDays": "{{days}} araw",
+        "dueFilterAny": "Kahit kailan",
+        "dueFilterDateLabel": "Due hanggang petsa",
+        "dueFilterChip": "Due: {{label}}",
         "filterClearAll": "I-clear ang lahat ng filter",
         "navLabelOverdue": "Mga Gawain, {{count}} ang lampas na sa taning",
         "statusArchived": "Naka-archive",

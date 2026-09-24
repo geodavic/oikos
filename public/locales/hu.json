@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Ki végezte el?",
+        "completedByBulkTitle": "Ki végezte el ezeket?",
+        "completedByLabel": "Elvégezte",
         "swipeSidesSwapped": "A csúsztatási irányok felcserélődtek - a fő művelet most a másik oldalon található.",
         "apply": "Hozzáadás",
         "searchClear": "Keresés törlése",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} további ma",
         "memberOpenTasks": "{{count}} feladat",
         "memberOpenTasks_one": "{{count}} feladat",
+        "memberTasksWidget": "{{name}} feladatai",
+        "unassignedTasks": "Nincs hozzárendelve",
+        "unassignedTasksEmpty": "Minden hozzá van rendelve",
         "manage": "Kezelés",
         "todayNothingElseTomorrow": "Mára nincs több teendő - holnap: {{title}}"
     },
@@ -370,6 +376,13 @@
         "filterClearAll": "Összes szűrő törlése",
         "filterGroupPerson": "Személy",
         "filterGroupTag": "Címke",
+        "filterGroupCategory": "Kategória",
+        "filterGroupDue": "Határidő eddig",
+        "dueFilterToday": "Ma",
+        "dueFilterDays": "{{days}} nap",
+        "dueFilterAny": "Bármikor",
+        "dueFilterDateLabel": "Határidő dátumig",
+        "dueFilterChip": "Határidő: {{label}}",
         "filterGroupPriority": "Prioritás",
         "filterGroupStatus": "Állapot",
         "swipedDoneToast": "Befejezettként jelölve.",

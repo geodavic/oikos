@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Who completed this?",
+        "completedByBulkTitle": "Who completed these?",
+        "completedByLabel": "Completed by",
         "swipeSidesSwapped": "Swipe directions have been swapped - the main action is now on the other side.",
         "apply": "Add",
         "searchClear": "Clear search",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} more today",
         "memberOpenTasks": "{{count}} tasks",
         "memberOpenTasks_one": "{{count}} task",
+        "memberTasksWidget": "Tasks for {{name}}",
+        "unassignedTasks": "Unassigned",
+        "unassignedTasksEmpty": "Everything is assigned",
         "manage": "Manage",
         "todayNothingElseTomorrow": "Nothing else today - tomorrow: {{title}}"
     },
@@ -370,6 +376,13 @@
         "filterClearAll": "Clear all filters",
         "filterGroupPerson": "Person",
         "filterGroupTag": "Tag",
+        "filterGroupCategory": "Category",
+        "filterGroupDue": "Due by",
+        "dueFilterToday": "Today",
+        "dueFilterDays": "{{days}} days",
+        "dueFilterAny": "Any time",
+        "dueFilterDateLabel": "Due by date",
+        "dueFilterChip": "Due: {{label}}",
         "filterGroupPriority": "Priority",
         "filterGroupStatus": "Status",
         "swipedDoneToast": "Marked as done.",

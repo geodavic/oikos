@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Кто это выполнил?",
+        "completedByBulkTitle": "Кто их выполнил?",
+        "completedByLabel": "Выполнил",
         "swipeSidesSwapped": "Направления смахивания поменялись местами - основное действие теперь с другой стороны.",
         "apply": "Добавить",
         "searchClear": "Очистить поиск",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} ещё сегодня",
         "memberOpenTasks": "{{count}} задач",
         "memberOpenTasks_one": "{{count}} задача",
+        "memberTasksWidget": "Задачи: {{name}}",
+        "unassignedTasks": "Без исполнителя",
+        "unassignedTasksEmpty": "Всё распределено",
         "manage": "Управлять",
         "todayNothingElseTomorrow": "Больше на сегодня ничего нет - завтра: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "Сбросить все фильтры",
         "filterGroupPerson": "Человек",
         "filterGroupTag": "Тег",
+        "filterGroupCategory": "Категория",
+        "filterGroupDue": "Срок до",
+        "dueFilterToday": "Сегодня",
+        "dueFilterDays": "{{days}} дн.",
+        "dueFilterAny": "Любой срок",
+        "dueFilterDateLabel": "Срок до даты",
+        "dueFilterChip": "Срок: {{label}}",
         "filterGroupPriority": "Приоритет",
         "filterGroupStatus": "Статус",
         "swipedDoneToast": "Отмечено как выполненное.",

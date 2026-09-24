@@ -28,13 +28,16 @@ import express from 'express';
 const dbmod = await import('../server/db.js');
 const { default: birthdaysRouter } = await import('../server/routes/birthdays.js');
 const { daysUntilBirthday, nextBirthdayAge } = await import('../server/services/birthdays.js');
+const { MAX_PHOTO_LENGTH } = await import('../server/middleware/validate.js');
 const db = dbmod.get();
 
 const USER = db.prepare(`INSERT INTO users (username, display_name, password_hash, role) VALUES ('u','U','x','member')`).run().lastInsertRowid;
 
 let actor = { id: USER, role: 'member' };
 const app = express();
-app.use(express.json({ limit: '12mb' }));
+// Gleiches Limit wie server/index.js (JSON_BODY_LIMIT): der Oversized-Foto-Test
+// muss den Validator (400) erreichen, nicht schon body-parsers 413 auslösen.
+app.use(express.json({ limit: '20mb' }));
 app.use((req, _res, next) => {
   req.authUserId = actor.id;
   req.authRole = actor.role;
@@ -83,7 +86,7 @@ test('POST /: ungültige Foto-Data-URL → 400', async () => {
 });
 
 test('POST /: zu großes Foto → 400 (Größenlimit vor Regex)', async () => {
-  const huge = 'data:image/png;base64,' + 'A'.repeat(7_000_000); // > MAX_PHOTO_LENGTH
+  const huge = 'data:image/png;base64,' + 'A'.repeat(MAX_PHOTO_LENGTH); // > MAX_PHOTO_LENGTH
   const r = await call('POST', '/', { name: 'Riesig', birth_date: '1990-01-01', photo_data: huge });
   assert.equal(r.status, 400);
   assert.match(r.body.error, /too large/);
@@ -258,6 +261,6 @@ test('DELETE /:id: löscht Geburtstag inkl. Kalender-Event + Reminder', async ()
 test('GET /meta/options: liefert Foto-Limit + akzeptierte Bildtypen', async () => {
   const r = await call('GET', '/meta/options');
   assert.equal(r.status, 200);
-  assert.equal(r.body.data.photoMaxBytes, 6_990_507);
+  assert.equal(r.body.data.photoMaxBytes, MAX_PHOTO_LENGTH);
   assert.deepEqual(r.body.data.acceptedImageTypes, ['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 });

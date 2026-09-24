@@ -98,6 +98,11 @@ const INTENTIONALLY_NOT_IN_INSTALLER = {
     + 'und meint das Verzeichnis IM Container. Hier ist es sogar schaerfer, weil kein Descriptor '
     + 'die Variable unter environment pinnt - ein Host-Pfad aus der .env erreicht den Container '
     + 'also ungebremst. Wer Module ablegt, setzt den Mount in der Compose-Datei.',
+  JSON_BODY_LIMIT:
+    'Tuning-Knopf für die maximale JSON-Body-Größe. Der Default deckt die Foto-Uploads ab, '
+    + 'die die App überhaupt zulässt (MAX_PHOTO_LENGTH); ihn zu erhöhen hilft nur zusammen mit '
+    + 'einem größeren Foto-Limit im Code und einem passenden client_max_body_size im Proxy. '
+    + 'Das im Wizard zu fragen, hieße eine Zahl zu erheben, die für sich allein nichts ändert.',
   OIKOS_HTTP_BIND: 'Bindungsadresse für rootless Podman hinter Proxy. Ein falscher Wert macht die App unerreichbar, und der Default ist für jede vom Wizard erzeugte Installation richtig.',
 
   // Werden zur Laufzeit erzeugt und in der Datenbank abgelegt.

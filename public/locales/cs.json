@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Kdo to udělal?",
+        "completedByBulkTitle": "Kdo je udělal?",
+        "completedByLabel": "Dokončil(a)",
         "swipeSidesSwapped": "Směry přejetí byly prohozeny - hlavní akce je nyní na druhé straně.",
         "apply": "Přidat",
         "searchClear": "Vymazat hledání",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} další dnes",
         "memberOpenTasks": "{{count}} úkolů",
         "memberOpenTasks_one": "{{count}} úkol",
+        "memberTasksWidget": "Úkoly: {{name}}",
+        "unassignedTasks": "Nepřiřazené",
+        "unassignedTasksEmpty": "Vše je přiřazeno",
         "manage": "Spravovat",
         "todayNothingElseTomorrow": "Dnes už nic dalšího - zítra: {{title}}"
     },
@@ -370,6 +376,13 @@
         "filterClearAll": "Vymazat všechny filtry",
         "filterGroupPerson": "Osoba",
         "filterGroupTag": "Štítek",
+        "filterGroupCategory": "Kategorie",
+        "filterGroupDue": "Splatné do",
+        "dueFilterToday": "Dnes",
+        "dueFilterDays": "{{days}} dní",
+        "dueFilterAny": "Kdykoli",
+        "dueFilterDateLabel": "Splatné do data",
+        "dueFilterChip": "Splatnost: {{label}}",
         "filterGroupPriority": "Priorita",
         "filterGroupStatus": "Stav",
         "swipedDoneToast": "Označeno jako hotové.",

@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Wie heeft dit gedaan?",
+        "completedByBulkTitle": "Wie heeft deze gedaan?",
+        "completedByLabel": "Voltooid door",
         "swipeSidesSwapped": "De veegrichtingen zijn verwisseld - de hoofdactie staat nu aan de andere kant.",
         "apply": "Toevoegen",
         "searchClear": "Zoekopdracht wissen",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} meer vandaag",
         "memberOpenTasks": "{{count}} taken",
         "memberOpenTasks_one": "{{count}} taak",
+        "memberTasksWidget": "Taken van {{name}}",
+        "unassignedTasks": "Niet toegewezen",
+        "unassignedTasksEmpty": "Alles is toegewezen",
         "manage": "Beheren",
         "todayNothingElseTomorrow": "Verder niets meer vandaag - morgen: {{title}}"
     },
@@ -370,6 +376,13 @@
         "filterClearAll": "Alle filters wissen",
         "filterGroupPerson": "Persoon",
         "filterGroupTag": "Label",
+        "filterGroupCategory": "Categorie",
+        "filterGroupDue": "Vervalt vóór",
+        "dueFilterToday": "Vandaag",
+        "dueFilterDays": "{{days}} dagen",
+        "dueFilterAny": "Altijd",
+        "dueFilterDateLabel": "Vervalt vóór datum",
+        "dueFilterChip": "Vervalt: {{label}}",
         "filterGroupPriority": "Prioriteit",
         "filterGroupStatus": "Status",
         "swipedDoneToast": "Als klaar gemarkeerd.",

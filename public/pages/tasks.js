@@ -23,7 +23,9 @@ import '/components/category-manager.js';
 import '/components/tag-manager.js';
 import { findPageFab } from '/utils/fab.js';
 import { isSoloHousehold } from '/utils/household.js';
+import { askCompletedBy } from '/utils/completed-by.js';
 import { isNavModuleReadOnly } from '/permissions.js';
+import { toLocalDateKey, addLocalDays } from '/utils/date.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -37,7 +39,6 @@ const PRIORITIES = () => [
   { value: 'none',   label: t('tasks.priorityNone'),   color: 'var(--color-priority-none)'   },
 ];
 
-const PRIO_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
 
 // Die Zustände, die eine Aufgabe im Lauf durchläuft. Das Archiv steht seit #688
 // NICHT mehr darunter: Ablegen und Erledigen sind zwei Aussagen, und solange sie
@@ -494,18 +495,18 @@ function effectiveDue(task) {
     : new Date(`${task.due_date}T23:59:59`);
 }
 
-// Einheitliche Sortierung: überfällig zuerst → Datum/Zeit ASC → Prio als Tiebreaker
-function sortTasks(a, b, now) {
+// Alphabetical by title within each group/column; the due-date filter and the
+// "due" grouping already cover the time dimension. Ties fall back to due date.
+const titleCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+function sortTasks(a, b) {
+  const byTitle = titleCollator.compare(a.title || '', b.title || '');
+  if (byTitle) return byTitle;
   const aDate = effectiveDue(a);
   const bDate = effectiveDue(b);
-  const aOver = aDate && aDate < now ? 1 : 0;
-  const bOver = bDate && bDate < now ? 1 : 0;
-  if (bOver !== aOver) return bOver - aOver;
-  if (!aDate && !bDate) return (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4);
+  if (!aDate && !bDate) return 0;
   if (!aDate) return 1;
   if (!bDate) return -1;
-  if (aDate.getTime() !== bDate.getTime()) return aDate < bDate ? -1 : 1;
-  return (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4);
+  return aDate - bDate;
 }
 
 function renderTaskGroups(tasks, groupMode) {
@@ -530,10 +531,9 @@ function renderTaskGroups(tasks, groupMode) {
     </div>`;
   }
 
-  const now = new Date();
   const groups = groupBy(tasks, groupMode);
   return groups.map(([name, groupTasks]) => {
-    const sorted = [...groupTasks].sort((a, b) => sortTasks(a, b, now));
+    const sorted = [...groupTasks].sort(sortTasks);
     return `
     <div class="task-group list-group">
       <!-- Gruppenkopf als echte Ueberschrift (Critique 2026-08-10): /tasks
@@ -965,7 +965,7 @@ ${syncTargetFieldHtml(task)}
       ${isEdit ? `
         <div class="form-group">
           <label class="label" for="task-status">${t('tasks.statusLabel')}</label>
-          <select class="input" id="task-status" name="status">
+          <select class="input" id="task-status" name="status" data-original="${esc(task.status ?? '')}">
             ${STATUSES().map((s) =>
               `<option value="${s.value}" ${task.status === s.value ? 'selected' : ''}>${s.label}</option>`
             ).join('')}
@@ -1002,6 +1002,9 @@ ${syncTargetFieldHtml(task)}
 // Seiten-State
 // --------------------------------------------------------
 
+const DEFAULT_DUE_DAYS = 7;
+const DUE_FILTER_PRESETS = [0, 3, 7, 14, 30];
+
 let state = {
   tasks:           [],
   users:           [],
@@ -1014,7 +1017,10 @@ let state = {
   // wie jeder andere Filter in dieser Leiste auch (#586).
   // Status, Priorität und Person halten mehrere Werte (#671); innerhalb einer
   // Achse wirken sie ODER, zwischen den Achsen UND. Tags bleiben UND-verknüpft.
-  filters:         { status: ['open'], priority: [], assigned_to: [], tags: [] },
+  filters:         { status: ['open'], priority: [], assigned_to: [], tags: [], category: [] },
+  // Due-date cutoff: { days: N } (relative to today), { date: 'YYYY-MM-DD' },
+  // or null for no cutoff. Undated tasks are always shown.
+  dueFilter:       { days: DEFAULT_DUE_DAYS },
   groupMode:       'category',   // 'category' | 'due'
   viewMode:        'list',       // 'list' | 'kanban' (resolved at render time)
   showFuture:      false,
@@ -1073,8 +1079,26 @@ function taskQuery() {
   state.filters.priority.forEach((v) => params.append('priority', v));
   state.filters.assigned_to.forEach((v) => params.append('assigned_to', v));
   state.filters.tags.forEach((tag) => params.append('tag', tag));
+  state.filters.category.forEach((v) => params.append('category', v));
+  const dueUntil = dueUntilKey();
+  if (dueUntil) params.set('due_until', dueUntil);
   if (state.showFuture)          params.set('include_future', '1');
   return params.toString() ? `?${params}` : '';
+}
+
+/** The due-date filter as an inclusive YYYY-MM-DD cutoff, or null for none. */
+function dueUntilKey(filter = state.dueFilter) {
+  if (!filter) return null;
+  if (filter.date) return filter.date;
+  return addLocalDays(toLocalDateKey(), filter.days);
+}
+
+/** Human label for a due-date filter value, e.g. "Today", "7 days", "Oct 3". */
+function dueFilterLabel(filter = state.dueFilter) {
+  if (!filter) return t('tasks.dueFilterAny');
+  if (filter.date) return formatDate(new Date(`${filter.date}T00:00:00`));
+  if (filter.days === 0) return t('tasks.dueFilterToday');
+  return t('tasks.dueFilterDays', { days: filter.days });
 }
 
 async function loadTasks(container) {
@@ -1097,9 +1121,55 @@ async function refreshTags() {
   } catch { /* alte Liste behalten */ }
 }
 
-async function toggleTaskStatus(id, currentStatus) {
+/**
+ * Every single-task status change goes through here, so that the question "who
+ * completed this?" is asked in exactly one place instead of at each of the list
+ * checkbox, the swipe, the detail view and the two kanban gestures.
+ *
+ * Asked only on the way INTO 'done'. Reopening needs no author, and asking on the
+ * undo half of a swipe would put a dialog in front of a gesture whose whole point
+ * is that it takes it back.
+ *
+ * @returns {Promise<boolean>} false when the user cancelled the question - the
+ *   caller must then leave the task alone, including undoing any optimistic paint.
+ */
+async function patchTaskStatus(id, status, { assignedIds = [], overModal = false } = {}) {
+  const body = { status };
+  if (status === 'done') {
+    const who = await askCompletedBy({ assignedIds, overModal });
+    if (who === null) return false;
+    body.completed_by = who;
+  }
+  await api.patch(`/tasks/${id}/status`, body);
+  return true;
+}
+
+/** The loaded task behind an id, for the assignee preselect. */
+function taskById(id) {
+  return state.tasks.find((tk) => String(tk.id) === String(id)) ?? null;
+}
+
+/** The loaded subtask behind an id - subtasks carry their own assignees. */
+function subtaskById(id) {
+  for (const tk of state.tasks) {
+    const hit = (tk.subtasks ?? []).find((sub) => String(sub.id) === String(id));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** Assignee ids of a task row, whichever shape the surface holds it in. */
+function assigneeIdsOf(task) {
+  if (!task) return [];
+  if (Array.isArray(task.assigned_users) && task.assigned_users.length) {
+    return task.assigned_users.map((u) => u.id);
+  }
+  return task.assigned_to ? [task.assigned_to] : [];
+}
+
+async function toggleTaskStatus(id, currentStatus, task = null) {
   const next = currentStatus === 'done' ? 'open' : 'done';
-  await api.patch(`/tasks/${id}/status`, { status: next });
+  return patchTaskStatus(id, next, { assignedIds: assigneeIdsOf(task) });
 }
 
 /** Ablegen bzw. zurückholen (#688) - der Status bleibt dabei, wie er war. */
@@ -1107,9 +1177,9 @@ async function setTaskArchived(id, archived) {
   await api.patch(`/tasks/${id}/archive`, { archived });
 }
 
-async function toggleSubtaskStatus(id, currentStatus) {
+async function toggleSubtaskStatus(id, currentStatus, { overModal = false, task = null } = {}) {
   const next = currentStatus === 'done' ? 'open' : 'done';
-  await api.patch(`/tasks/${id}/status`, { status: next });
+  return patchTaskStatus(id, next, { assignedIds: assigneeIdsOf(task), overModal });
 }
 
 async function loadTaskForEdit(id) {
@@ -1422,7 +1492,13 @@ function subtaskListNode(task, container) {
       // reagiert, fühlt sich wie ein verschluckter Klick an.
       paint(row, previous === 'done' ? 'open' : 'done', s.title);
       try {
-        await toggleSubtaskStatus(s.id, previous);
+        // The detail view is an open modal, so the question has to be asked over
+        // it - a plain selectModal would tear it down on the cancel path.
+        const ok = await toggleSubtaskStatus(s.id, previous, { overModal: true, task: s });
+        if (!ok) {
+          paint(row, previous, s.title);
+          return;
+        }
         // Die Liste im Hintergrund trägt den Fortschrittsbalken der Elternkarte.
         if (container) await loadTasks(container);
       } catch (err) {
@@ -1878,6 +1954,12 @@ function renderTaskDetail(task, reminders = [], container = null) {
     recurrenceRow(task.recurrence_rule, { fromCompletion: !!task.recurrence_from_completion }),
     { icon: 'folder', label: t('tasks.categoryLabel'), value: task.category && task.category !== FALLBACK_CATEGORY ? catLabel(task.category) : '' },
     assignedRow(task.assigned_users, t('tasks.assignedLabel')),
+    // Directly under "assigned to", because the two are only worth showing
+    // together: the point of recording a completer is that it can differ from
+    // the person the task was given to. Empty unless someone answered the
+    // question - everything finished before this existed has no answer, and a
+    // row saying so on every old task would be noise.
+    { icon: 'user-check', label: t('common.completedByLabel'), value: task.completed_by_name ?? '' },
     { icon: 'award', label: t('tasks.pointsLabel'), value: task.points ? String(task.points) : '' },
     { icon: 'tag', label: t('tasks.tagsLabel'), node: tagChipsNode(task.tags) },
     { icon: 'list-checks', label: t('tasks.subtasksLabel'), node: subtaskListNode(task, container) },
@@ -1998,7 +2080,15 @@ async function advanceTaskStatus(task, status, button, container) {
   const previous = task.status;
   const stop = btnLoading(button);
   try {
-    await api.patch(`/tasks/${task.id}/status`, { status });
+    // overModal: the detail view occupies the shared modal slot in its sheet
+    // presentation, and asking through openModal would tear it down.
+    const ok = await patchTaskStatus(task.id, status, {
+      assignedIds: assigneeIdsOf(task), overModal: true,
+    });
+    if (!ok) {
+      stop();
+      return;
+    }
     task.status = status;
     // Der Status steht bereits beim Server - eine Verwerfen-Frage danach böte
     // an, etwas rückgängig zu machen, was gar nicht mehr aussteht (#625).
@@ -2229,6 +2319,27 @@ async function handleFormSubmit(e, container) {
   body.due_time = dueTime || null;
   if (form.status) body.status = form.status.value;
 
+  // The status dropdown ticks a task off just like the checkbox does, so it asks
+  // the same question - but only when this save is what moves it into 'done'.
+  // `data-original` is the status the form opened with: comparing against it
+  // keeps an unrelated edit to an already-done task from asking again.
+  if (form.status && body.status === 'done' && form.status.dataset.original !== 'done') {
+    const who = await askCompletedBy({
+      // The assignees as this save will leave them, not as the task was loaded -
+      // reassigning and ticking off in one go should preselect the new person.
+      assignedIds: body.assigned_to ?? [],
+      overModal: true,
+    });
+    if (who === null) {
+      // Not an error: the user answered the question with "not now". The form
+      // stays open and untouched, so resetSubmit only has to give the button back.
+      resetSubmit('');
+      errorEl.hidden = true;
+      return;
+    }
+    body.completed_by = who;
+  }
+
   // Erinnerungs-Vorbedingungen VOR dem Speichern prüfen — verhindert den
   // widersprüchlichen Zustand "Aufgabe gespeichert (Erfolgs-Toast) + roter
   // Fehler", wenn Reminder ohne Fälligkeit/Offset gesetzt wird (Critique P2).
@@ -2432,7 +2543,7 @@ function kanbanNextStatus(status) {
  * das ging vorher nicht, weil die Spalte den Status SETZTE - eine erledigte
  * Aufgabe kam als offene zurück (#688).
  */
-async function moveTaskToColumn(before, column) {
+async function moveTaskToColumn(before, column, task = null) {
   // `before` ist der Stand VOR dem optimistischen Update - der State ist zu
   // diesem Zeitpunkt schon umgeschrieben, und die Entscheidung, ob überhaupt ein
   // Statuswechsel nötig ist, muss sich auf den alten Stand beziehen.
@@ -2440,8 +2551,20 @@ async function moveTaskToColumn(before, column) {
     await setTaskArchived(before.id, true);
     return;
   }
+  const completing = before.status !== column && column === 'done';
+  // Asked BEFORE the un-archive below, not inside the status call. A drop into
+  // Done can be two writes, and a question between them would leave a cancelled
+  // move having already pulled the task out of the archive.
+  let completedBy;
+  if (completing) {
+    completedBy = await askCompletedBy({ assignedIds: assigneeIdsOf(task) });
+    if (completedBy === null) return;
+  }
   if (before.archived_at) await setTaskArchived(before.id, false);
-  if (before.status !== column) await api.patch(`/tasks/${before.id}/status`, { status: column });
+  if (before.status !== column) {
+    await api.patch(`/tasks/${before.id}/status`,
+      completing ? { status: column, completed_by: completedBy } : { status: column });
+  }
 }
 
 /** Optimistisches Spiegelbild von moveTaskToColumn auf dem State-Objekt. */
@@ -2460,7 +2583,9 @@ async function runColumnMove(task, column, container) {
   applyColumnLocally(task, column);
   renderKanban(container);
   try {
-    await moveTaskToColumn(before, column);
+    // A cancelled question needs no explicit revert: the reload below is
+    // unconditional and repaints the board from the unchanged server state.
+    await moveTaskToColumn(before, column, task);
   } catch (err) {
     window.yuvomi.showToast(err.message, 'danger');
   }
@@ -2516,9 +2641,8 @@ function renderKanban(container) {
     else grouped['open'].push(t);
   }
 
-  const now = new Date();
   for (const col of cols) {
-    grouped[col.status].sort((a, b) => sortTasks(a, b, now));
+    grouped[col.status].sort(sortTasks);
   }
 
   // Bei aktiver Suche ohne Treffer wäre ein Board aus lauter „Keine Aufgaben"-
@@ -2847,7 +2971,9 @@ function renderFilters(container) {
   const activeCount    = (state.viewMode === 'kanban' ? 0 : state.filters.status.length)
     + state.filters.priority.length
     + state.filters.assigned_to.length
-    + state.filters.tags.length;
+    + state.filters.tags.length
+    + state.filters.category.length
+    + (state.dueFilter ? 1 : 0);
 
   // ---- Chip-Leiste: nur aktive Filter + Toggle-Button ----
   bar.replaceChildren();
@@ -2891,6 +3017,22 @@ function renderFilters(container) {
     chip.dataset.value = tag;
     bar.appendChild(chip);
   });
+  state.filters.category.forEach((value) => {
+    const chip = makeChip({ label: catLabel(value), active: true, withRemove: true });
+    chip.dataset.filter = 'category';
+    chip.dataset.value = value;
+    bar.appendChild(chip);
+  });
+  // Removing the due chip clears the cutoff entirely ("Any time").
+  if (state.dueFilter) {
+    const chip = makeChip({
+      label: t('tasks.dueFilterChip', { label: dueFilterLabel() }),
+      active: true,
+      withRemove: true,
+    });
+    chip.dataset.dueFilter = 'any';
+    bar.appendChild(chip);
+  }
 
   // "Mir zugewiesen" Schnellzugriff — nur sinnvoll bei mehreren Familienmitgliedern.
   // Icon+Label bewusst identisch zum Kalender-Toggle (gleiche Fähigkeit, eine Gestalt).
@@ -2972,6 +3114,7 @@ function renderFilters(container) {
     // mitsetzt: ohne sie hieße ein Chip „Offen" und schaltete zusätzlich
     // Tag-Filter, die niemand am Chip ablesen kann (#586).
     parts.push(...f.tags);
+    f.category.forEach((v) => parts.push(catLabel(v)));
     if (!parts.length) return;
     // Aktions-Chip (wendet ein Filter-Set an), kein Ein/Aus-Zustand → pressed:null.
     const chip = makeChip({ label: parts.join(' · '), extraClass: 'filter-chip--recent', pressed: null });
@@ -3005,6 +3148,13 @@ function renderFilters(container) {
         key: 'assigned_to',
         label: t('tasks.filterGroupPerson'),
         items: state.users.map((u) => ({ value: String(u.id), label: u.display_name })),
+      });
+    }
+    if (state.categories.length > 1) {
+      groups.push({
+        key: 'category',
+        label: t('tasks.filterGroupCategory'),
+        items: state.categories.map((c) => ({ value: c.key, label: catLabel(c.key) })),
       });
     }
     // Tags nur anbieten, wenn welche vergeben sind — ohne CalDAV-Spiegel und ohne
@@ -3047,6 +3197,8 @@ function renderFilters(container) {
       panel.appendChild(section);
     });
 
+    panel.appendChild(renderDueFilterGroup());
+
     if (activeCount > 0) {
       const clearBtn = document.createElement('button');
       clearBtn.className = 'filter-panel__clear';
@@ -3058,6 +3210,45 @@ function renderFilters(container) {
   }
 
   wireFilterChips(container);
+}
+
+/**
+ * "Due by" group: preset chips (relative to today) plus a date picker for a
+ * fixed cutoff. Single-select, unlike the other groups - there is one cutoff.
+ */
+function renderDueFilterGroup() {
+  const section = document.createElement('div');
+  section.className = 'filter-panel__group';
+  section.setAttribute('role', 'group');
+  section.setAttribute('aria-label', t('tasks.filterGroupDue'));
+
+  const heading = document.createElement('div');
+  heading.className = 'filter-panel__label';
+  heading.textContent = t('tasks.filterGroupDue');
+  section.appendChild(heading);
+
+  const row = document.createElement('div');
+  row.className = 'filter-panel__chips';
+  const current = state.dueFilter;
+  for (const days of DUE_FILTER_PRESETS) {
+    const active = !!current && !current.date && current.days === days;
+    const chip = makeChip({ label: dueFilterLabel({ days }), active });
+    chip.dataset.dueFilter = String(days);
+    row.appendChild(chip);
+  }
+  const anyChip = makeChip({ label: t('tasks.dueFilterAny'), active: !current });
+  anyChip.dataset.dueFilter = 'any';
+  row.appendChild(anyChip);
+
+  const picker = document.createElement('yuvomi-datepicker');
+  picker.setAttribute('type', 'date');
+  picker.id = 'filter-due-date';
+  picker.setAttribute('aria-label', t('tasks.dueFilterDateLabel'));
+  picker.setAttribute('value', current?.date ? formatDateInput(current.date) : '');
+  row.appendChild(picker);
+
+  section.appendChild(row);
+  return section;
 }
 
 function updateOverdueBadge() {
@@ -3156,6 +3347,7 @@ function normalizeFilterSet(f = {}) {
     priority:    asList(f.priority),
     assigned_to: asList(f.assigned_to),
     tags:        asList(Array.isArray(f.tags) ? f.tags : (f.tag ? [f.tag] : [])),
+    category:    asList(f.category),
   };
 }
 
@@ -3187,12 +3379,12 @@ function getRecentFilters() {
 
 function saveRecentFilter(filters) {
   const set = normalizeFilterSet(filters);
-  if (!set.status.length && !set.priority.length && !set.assigned_to.length && !set.tags.length) return;
+  if (!set.status.length && !set.priority.length && !set.assigned_to.length && !set.tags.length && !set.category.length) return;
   // Jede Achse gehört mit allen ihren Werten in den Schlüssel: sonst verdrängte
   // „Offen + Garten" den Eintrag „Offen + Haus", weil beide auf dieselbe Kennung
   // fielen - seit #671 gilt dasselbe für zwei Prioritäten statt einer.
   const axis = (values) => [...values].map((v) => String(v).toLowerCase()).sort().join(',');
-  const keyOf = (f) => [f.status, f.priority, f.assigned_to, f.tags].map(axis).join('|');
+  const keyOf = (f) => [f.status, f.priority, f.assigned_to, f.tags, f.category].map(axis).join('|');
   const key = keyOf(set);
   const recent = getRecentFilters().filter((f) => keyOf(f) !== key);
   recent.unshift(set);
@@ -3220,7 +3412,13 @@ function wireSwipeGestures(container) {
         const capturedStatus = row.dataset.swipeStatus;
         const nextStatus = capturedStatus === 'done' ? 'open' : 'done';
         try {
-          await toggleTaskStatus(taskId, capturedStatus);
+          const ok = await toggleTaskStatus(taskId, capturedStatus, taskById(taskId));
+          // The card has already flown out at this point; reloading is what puts
+          // it back where it was when the question goes unanswered.
+          if (!ok) {
+            await loadTasks(container);
+            return;
+          }
           await loadTasks(container);
           window.yuvomi.showToast(
             t(nextStatus === 'done' ? 'tasks.swipedDoneToast' : 'tasks.swipedOpenToast'),
@@ -3274,7 +3472,8 @@ function wireFilterChips(container) {
 
   // Alle Filter zurücksetzen
   container.querySelector('#filter-clear-all')?.addEventListener('click', async () => {
-    state.filters = { status: [], priority: [], assigned_to: [], tags: [] };
+    state.filters = { status: [], priority: [], assigned_to: [], tags: [], category: [] };
+    state.dueFilter = null;
     renderFilters(container);
     await loadTasks(container);
   });
@@ -3304,6 +3503,26 @@ function wireFilterChips(container) {
       }
       await toggleValueFilter(filter, chip.dataset.value, container);
     });
+  });
+
+  // Due-date presets and the "Any time" / chip-bar remove button.
+  container.querySelectorAll('[data-due-filter]').forEach((chip) => {
+    chip.addEventListener('click', async () => {
+      const value = chip.dataset.dueFilter;
+      state.dueFilter = value === 'any' ? null : { days: Number(value) };
+      renderFilters(container);
+      await loadTasks(container);
+    });
+  });
+
+  // Fixed due-date cutoff from the picker. An emptied picker clears the filter.
+  container.querySelector('#filter-due-date')?.addEventListener('change', async (e) => {
+    const raw = e.currentTarget.value || '';
+    const date = parseDateInput(raw);
+    if (raw && !date) return;
+    state.dueFilter = date ? { date } : null;
+    renderFilters(container);
+    await loadTasks(container);
   });
 
   // Recent-Filter-Chips anwenden
@@ -3482,7 +3701,17 @@ function wireBulkActions(container) {
     try {
       if (action === 'bulk-mark-done' || action === 'bulk-mark-open') {
         const status = btn.dataset.status;
-        await Promise.all(taskIds.map(id => api.patch(`/tasks/${id}/status`, { status })));
+        // Asked ONCE for the whole selection, not once per task: a batch is a
+        // single act by a single person, and N dialogs in a row would be the
+        // fastest way to teach people to dismiss this one without reading it.
+        // Nothing is preselected - a batch spans several assignees.
+        const body = { status };
+        if (status === 'done') {
+          const who = await askCompletedBy({ title: t('common.completedByBulkTitle') });
+          if (who === null) return;
+          body.completed_by = who;
+        }
+        await Promise.all(taskIds.map(id => api.patch(`/tasks/${id}/status`, body)));
         window.yuvomi.showToast(t('tasks.bulkStatusChanged'), 'success');
       } else if (action === 'bulk-archive') {
         await Promise.all(taskIds.map(id => setTaskArchived(id, true)));
@@ -3545,8 +3774,11 @@ function wireTaskList(container) {
       target.classList.toggle('task-status-btn--done', status !== 'done');
       target.closest('.task-card')?.classList.toggle('task-card--done', status !== 'done');
       try {
-        await toggleTaskStatus(id, status);
+        // Cancelling and failing land in the same place: the optimistic classes
+        // above are already painted, and reloading is what takes them back.
+        const ok = await toggleTaskStatus(id, status, taskById(id));
         await loadTasks(container);
+        if (!ok) return;
       } catch (err) {
         window.yuvomi.showToast(err.message, 'danger');
         await loadTasks(container);
@@ -3563,7 +3795,9 @@ function wireTaskList(container) {
 
     if (action === 'toggle-subtask') {
       try {
-        await toggleSubtaskStatus(id, target.dataset.status);
+        // No optimistic paint on this row, so a cancelled question needs nothing
+        // undone - the reload below repaints it from the unchanged server state.
+        await toggleSubtaskStatus(id, target.dataset.status, { task: subtaskById(id) });
         await loadTasks(container);
       } catch (err) {
         window.yuvomi.showToast(err.message, 'danger');

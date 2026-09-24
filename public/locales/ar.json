@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "من أنجز هذه المهمة؟",
+        "completedByBulkTitle": "من أنجز هذه المهام؟",
+        "completedByLabel": "أنجزها",
         "swipeSidesSwapped": "تم تبديل اتجاهات السحب - الإجراء الرئيسي الآن على الجانب الآخر.",
         "apply": "إضافة",
         "searchClear": "مسح البحث",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} أخرى اليوم",
         "memberOpenTasks": "{{count}} مهام",
         "memberOpenTasks_one": "{{count}} مهمة",
+        "memberTasksWidget": "مهام {{name}}",
+        "unassignedTasks": "غير مُسندة",
+        "unassignedTasksEmpty": "تم إسناد كل شيء",
         "manage": "إدارة",
         "todayNothingElseTomorrow": "لا شيء آخر اليوم - غدًا: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "مسح جميع الفلاتر",
         "filterGroupPerson": "الشخص",
         "filterGroupTag": "وسم",
+        "filterGroupCategory": "الفئة",
+        "filterGroupDue": "مستحقة حتى",
+        "dueFilterToday": "اليوم",
+        "dueFilterDays": "{{days}} أيام",
+        "dueFilterAny": "أي وقت",
+        "dueFilterDateLabel": "مستحقة حتى تاريخ",
+        "dueFilterChip": "الاستحقاق: {{label}}",
         "filterGroupPriority": "الأولوية",
         "filterGroupStatus": "الحالة",
         "swipedDoneToast": "تم وضع علامة مكتمل.",

@@ -33,12 +33,23 @@ export function isEnrolled(d, userId) {
 }
 
 /**
- * Wer verdient die Punkte einer Aufgabe? Zugewiesene, teilnehmende Mitglieder;
- * ist niemand zugewiesen (Kiosk-Tablet mit einem Account), die handelnde Person
- * — sofern selbst teilnehmend. Jedes zuständige Mitglied erhält den vollen Wert.
+ * Who earns a task's points?
+ *
+ * If the completion recorded WHO did it (`completedBy`, migration 152), that
+ * person and nobody else. This is the whole reason the surfaces ask: when a
+ * parent does a child's chore, the child gets nothing. If that person does not
+ * take part in the points system, the award is simply empty - paying the
+ * assignee instead would be exactly the bug this column exists to fix.
+ *
+ * Without an answer the old rule still applies: enrolled assignees, or, when
+ * nobody is assigned (kiosk tablet on a single account), the acting person if
+ * they are enrolled. Every responsible member earns the full value. This is the
+ * path taken by every writer that cannot answer the question: the CalDAV
+ * inbound sync, API tokens, and any client older than the migration.
  */
-export function rewardTargets(d, taskId, actingUserId) {
+export function rewardTargets(d, taskId, actingUserId, completedBy = null) {
   const enrolled = enrolledIds(d);
+  if (completedBy) return enrolled.has(completedBy) ? [completedBy] : [];
   const assignees = d.prepare('SELECT user_id FROM task_assignments WHERE task_id = ?')
     .all(taskId).map((r) => r.user_id);
   const targets = assignees.filter((id) => enrolled.has(id));
@@ -53,9 +64,14 @@ export function rewardTargets(d, taskId, actingUserId) {
  * falls der Statuswechsel mehrfach eintrifft.
  */
 export function awardForCompletion(d, taskId, actingUserId) {
-  const task = d.prepare('SELECT id, points, title FROM tasks WHERE id = ?').get(taskId);
+  // `completed_by` is read off the row rather than passed in: both routes write
+  // the column in the SAME transaction before control reaches here, so it is
+  // already correct. That saves threading the value through every caller - and a
+  // future third write path is then automatically right, instead of silently
+  // losing the attribution.
+  const task = d.prepare('SELECT id, points, title, completed_by FROM tasks WHERE id = ?').get(taskId);
   if (!task || !Number.isInteger(task.points) || task.points <= 0) return;
-  const targets = rewardTargets(d, taskId, actingUserId);
+  const targets = rewardTargets(d, taskId, actingUserId, task.completed_by);
   if (!targets.length) return;
   const ins = d.prepare(`INSERT OR IGNORE INTO ${'reward_ledger'} (user_id, delta, type, reason, task_id, created_by)
     VALUES (?, ?, 'earn', ?, ?, ?)`);

@@ -18,6 +18,7 @@ import express from 'express';
 
 const dbmod = await import('../server/db.js');
 const { default: itemsRouter } = await import('../server/routes/inventory/items.js');
+const { MAX_PHOTO_LENGTH } = await import('../server/middleware/validate.js');
 const db = dbmod.get();
 
 const USER = db.prepare(`
@@ -26,10 +27,10 @@ const USER = db.prepare(`
 `).run().lastInsertRowid;
 
 const app = express();
-// Gleiches Limit wie server/index.js: der Oversized-photo_data-Test muss den
-// Validator (400) erreichen, nicht schon an body-parsers Default-Limit (100kb)
-// mit 413 scheitern.
-app.use(express.json({ limit: '7mb' }));
+// Gleiches Limit wie server/index.js (JSON_BODY_LIMIT): der Oversized-photo_data-
+// Test muss den Validator (400) erreichen, nicht schon an body-parsers
+// Default-Limit (100kb) mit 413 scheitern.
+app.use(express.json({ limit: '20mb' }));
 app.use((req, _res, next) => {
   req.authUserId = USER;
   req.session = { userId: USER };
@@ -159,7 +160,7 @@ test('POST /items: gueltiges photo_data wird uebernommen und zurueckgegeben', as
 });
 
 test('POST /items: zu grosses photo_data -> 400', async () => {
-  const oversized = `data:image/png;base64,${'A'.repeat(7_000_000)}`;
+  const oversized = `data:image/png;base64,${'A'.repeat(MAX_PHOTO_LENGTH)}`;
   const r = await call('POST', '/items', { name: 'Item With Oversized Photo', photo_data: oversized });
   assert.equal(r.status, 400);
 });

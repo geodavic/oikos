@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Хто це виконав?",
+        "completedByBulkTitle": "Хто їх виконав?",
+        "completedByLabel": "Виконав",
         "swipeSidesSwapped": "Напрямки проведення помінялися місцями - основна дія тепер з іншого боку.",
         "apply": "Додати",
         "searchClear": "Очистити пошук",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} ще сьогодні",
         "memberOpenTasks": "{{count}} завдань",
         "memberOpenTasks_one": "{{count}} завдання",
+        "memberTasksWidget": "Завдання: {{name}}",
+        "unassignedTasks": "Без виконавця",
+        "unassignedTasksEmpty": "Усе розподілено",
         "manage": "Керувати",
         "todayNothingElseTomorrow": "Більше на сьогодні нічого немає - завтра: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "Скинути всі фільтри",
         "filterGroupPerson": "Особа",
         "filterGroupTag": "Тег",
+        "filterGroupCategory": "Категорія",
+        "filterGroupDue": "Термін до",
+        "dueFilterToday": "Сьогодні",
+        "dueFilterDays": "{{days}} дн.",
+        "dueFilterAny": "Будь-коли",
+        "dueFilterDateLabel": "Термін до дати",
+        "dueFilterChip": "Термін: {{label}}",
         "filterGroupPriority": "Пріоритет",
         "filterGroupStatus": "Статус",
         "swipedDoneToast": "Позначено як виконане.",

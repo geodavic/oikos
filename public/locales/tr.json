@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Bunu kim tamamladı?",
+        "completedByBulkTitle": "Bunları kim tamamladı?",
+        "completedByLabel": "Tamamlayan",
         "swipeSidesSwapped": "Kaydırma yönleri değiştirildi - ana eylem artık diğer tarafta.",
         "apply": "Ekle",
         "searchClear": "Aramayı temizle",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} tane daha bugün",
         "memberOpenTasks": "{{count}} görev",
         "memberOpenTasks_one": "{{count}} görev",
+        "memberTasksWidget": "{{name}} görevleri",
+        "unassignedTasks": "Atanmamış",
+        "unassignedTasksEmpty": "Her şey atandı",
         "manage": "Yönet",
         "todayNothingElseTomorrow": "Bugün başka bir şey yok - yarın: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "Tüm filtreleri temizle",
         "filterGroupPerson": "Kişi",
         "filterGroupTag": "Etiket",
+        "filterGroupCategory": "Kategori",
+        "filterGroupDue": "Son tarih",
+        "dueFilterToday": "Bugün",
+        "dueFilterDays": "{{days}} gün",
+        "dueFilterAny": "Her zaman",
+        "dueFilterDateLabel": "Son tarihe kadar",
+        "dueFilterChip": "Son tarih: {{label}}",
         "filterGroupPriority": "Öncelik",
         "filterGroupStatus": "Durum",
         "swipedDoneToast": "Tamamlandı olarak işaretlendi.",

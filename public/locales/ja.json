@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "だれが完了しましたか？",
+        "completedByBulkTitle": "これらはだれが完了しましたか？",
+        "completedByLabel": "完了者",
         "swipeSidesSwapped": "スワイプの方向が入れ替わりました。主なアクションは反対側になりました。",
         "apply": "追加",
         "searchClear": "検索をクリア",
@@ -270,6 +273,9 @@
         "todayMore_one": "他{{count}}件",
         "memberOpenTasks": "タスク{{count}}件",
         "memberOpenTasks_one": "タスク{{count}}件",
+        "memberTasksWidget": "{{name}} のタスク",
+        "unassignedTasks": "未割り当て",
+        "unassignedTasksEmpty": "すべて割り当て済み",
         "manage": "管理",
         "todayNothingElseTomorrow": "今日はこの後予定はありません。明日: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "すべてのフィルターをクリア",
         "filterGroupPerson": "人物",
         "filterGroupTag": "タグ",
+        "filterGroupCategory": "カテゴリー",
+        "filterGroupDue": "期限",
+        "dueFilterToday": "今日",
+        "dueFilterDays": "{{days}}日以内",
+        "dueFilterAny": "すべて",
+        "dueFilterDateLabel": "期限日",
+        "dueFilterChip": "期限: {{label}}",
         "filterGroupPriority": "優先度",
         "filterGroupStatus": "ステータス",
         "swipedDoneToast": "完了としてマーク。",

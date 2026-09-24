@@ -1521,20 +1521,29 @@ test('Wand-Modus: das Nachtfenster läuft über Mitternacht (22:00 bis 06:00)', 
 
 const widgets = await import('../public/utils/dashboard-widgets.js');
 
+/* SEIT DEN MITGLIEDER-KACHELN IST DAS LAYOUT NICHT MEHR WIDGET_IDS.
+ * `tasks` entfaltet sich zu einer Kachel je Person plus der Sammelkachel, also
+ * ist die Liste, gegen die hier geprueft wird, `layoutWidgetIds(MITGLIEDER)`.
+ * Die Zusicherung selbst bleibt Wort fuer Wort dieselbe - sie gilt jetzt nur
+ * ueber mehr Ids. */
+const MITGLIEDER = [1, 2];
+const LAYOUT_IDS = widgets.layoutWidgetIds(MITGLIEDER);
+const LAYOUT_DEFAULT = widgets.defaultWidgetConfig(MITGLIEDER);
+
 // Ein Bestandslayout, dem genau `missing` fehlt - sonst der unveraenderte
 // Default, so wie es ein Haushalt gespeichert hat, bevor es diese Id gab.
 function layoutOhne(missing) {
-  return widgets.DEFAULT_WIDGET_CONFIG
+  return LAYOUT_DEFAULT
     .filter((w) => w.id !== missing)
     .map((w, i) => ({ ...w, order: i }));
 }
 
 test('Widget-Merge: eine fehlende Id landet an ihrer Default-Position, nicht hinten', () => {
-  const geprueft = widgets.WIDGET_IDS.length;
-  assert(geprueft === 16, `Reichweite: ${geprueft} Ids geprueft, nicht die erwarteten 16`);
-  const falsch = widgets.WIDGET_IDS.filter((id) => {
-    const merged = widgets.normalizeDashboardConfig(layoutOhne(id));
-    return merged.map((w) => w.id).join(',') !== widgets.WIDGET_IDS.join(',');
+  const geprueft = LAYOUT_IDS.length;
+  assert(geprueft === 18, `Reichweite: ${geprueft} Ids geprueft, nicht die erwarteten 18`);
+  const falsch = LAYOUT_IDS.filter((id) => {
+    const merged = widgets.normalizeDashboardConfig(layoutOhne(id), MITGLIEDER);
+    return merged.map((w) => w.id).join(',') !== LAYOUT_IDS.join(',');
   });
   assert(falsch.length === 0,
     `An die falsche Stelle einsortiert: ${falsch.join(', ')} - erwartet ist die Default-Position`);
@@ -1544,28 +1553,30 @@ test('Widget-Merge: ein Bestandslayout ohne eine Id ist KEINE Nutzer-Umsortierun
   // Der eigentliche Punkt. Vor dem Merge-Fix ist das fuer jede Id rot, die
   // nicht die LETZTE sichtbare in WIDGET_IDS ist - angehaengt steht sie hinter
   // Widgets, vor denen sie im Default steht.
-  const falsch = widgets.WIDGET_IDS.filter((id) =>
-    widgets.isUserOrderedConfig(widgets.normalizeDashboardConfig(layoutOhne(id))));
+  const falsch = LAYOUT_IDS.filter((id) =>
+    widgets.isUserOrderedConfig(widgets.normalizeDashboardConfig(layoutOhne(id), MITGLIEDER), MITGLIEDER));
   assert(falsch.length === 0,
     `Als umsortiert gelesen, obwohl nur eine Id fehlte: ${falsch.join(', ')} - das Raster faellt dort auf preserve-order`);
 });
 
 test('Widget-Merge: zwei fehlende Ids behalten ihre Reihenfolge zueinander', () => {
-  const zwei = widgets.DEFAULT_WIDGET_CONFIG
+  const zwei = LAYOUT_DEFAULT
     .filter((w) => !['meals', 'shopping'].includes(w.id))
     .map((w, i) => ({ ...w, order: i }));
-  const merged = widgets.normalizeDashboardConfig(zwei).map((w) => w.id);
-  assert(merged.join(',') === widgets.WIDGET_IDS.join(','),
+  const merged = widgets.normalizeDashboardConfig(zwei, MITGLIEDER).map((w) => w.id);
+  assert(merged.join(',') === LAYOUT_IDS.join(','),
     `Zwei benachbarte Neuzugaenge kamen durcheinander: ${merged.join(',')}`);
-  assert(!widgets.isUserOrderedConfig(merged.map((id, i) => ({ id, visible: true, order: i, size: '1x1' }))),
+  assert(!widgets.isUserOrderedConfig(merged.map((id, i) => ({ id, visible: true, order: i, size: '1x1' })), MITGLIEDER),
     'zwei fehlende Ids lesen sich als Umsortierung');
 });
 
 test('Widget-Merge: eine fehlende Id am Anfang der Liste landet vorn, nicht hinten', () => {
-  // Der Fall ohne Vorgaenger - `tasks` ist WIDGET_IDS[0]. Die Rueckwaertssuche
-  // findet nichts und muss auf Position 0 fallen.
-  const merged = widgets.normalizeDashboardConfig(layoutOhne('tasks'));
-  assert(merged[0].id === 'tasks', `Erste Id landete auf Position ${merged.findIndex((w) => w.id === 'tasks')}`);
+  // Der Fall ohne Vorgaenger - die Kachel des ersten Mitglieds steht an
+  // Position 0, seit `tasks` sich dort entfaltet. Die Rueckwaertssuche findet
+  // nichts und muss auf Position 0 fallen.
+  const erste = LAYOUT_IDS[0];
+  const merged = widgets.normalizeDashboardConfig(layoutOhne(erste), MITGLIEDER);
+  assert(merged[0].id === erste, `Erste Id landete auf Position ${merged.findIndex((w) => w.id === erste)}`);
 });
 
 test('Widget-Merge: ein umsortiertes Layout laesst den Neuzugang seinem Vorgaenger folgen', () => {
@@ -1574,65 +1585,151 @@ test('Widget-Merge: ein umsortiertes Layout laesst den Neuzugang seinem Vorgaeng
   // keine Default-Position mehr, nur noch Nachbarn - der Neuzugang haengt sich
   // an seinen Vorgaenger, nicht ans Ende. Das ist die Entscheidung, und sie
   // steht hier, weil sie sonst niemandem auffaellt.
+  // `tasks` steht in diesem Bestandslayout und faellt seit dem Umbau still
+  // heraus (die Familien-Id ist keine Kachel mehr); an ihrer Stelle kommen die
+  // Mitglieder-Kacheln als Neuzugaenge herein - sichtbar, wie ihr Default es
+  // sagt, und ihrem Vorgaenger folgend wie jeder andere Neuzugang.
   const demo = ['weather', 'family', 'budget', 'birthdays', 'rewards', 'notes',
     'tasks', 'calendar', 'shopping', 'meals', 'housekeeping', 'health', 'cycle']
     .map((id, i) => ({ id, order: i, visible: i < 6, size: '1x1' }));
-  const merged = widgets.normalizeDashboardConfig(demo);
+  const merged = widgets.normalizeDashboardConfig(demo, MITGLIEDER);
+  assert(!merged.some((w) => w.id === 'tasks'),
+    'die Familien-Id `tasks` ist keine Kachel und darf kein Layout-Eintrag bleiben');
   const sichtbar = merged.filter((w) => w.visible).map((w) => w.id);
   // `countdown` ist der zweite Neuzugang in diesem Layout (#647) und belegt
   // dieselbe Zusicherung ein zweites Mal: sein Vorgaenger in WIDGET_IDS ist
   // `birthdays`, und dorthin gehoert er - nicht ans Ende.
-  assert(sichtbar.join(',') === 'weather,metrics,family,budget,birthdays,countdown,rewards,notes',
+  assert(sichtbar.join(',') === 'tasks-u1,tasks-u2,tasks-unassigned,weather,metrics,family,budget,birthdays,countdown,rewards,notes',
     `Neuzugang an unerwarteter Stelle: ${sichtbar.join(',')}`);
-  assert(widgets.isUserOrderedConfig(merged),
+  assert(widgets.isUserOrderedConfig(merged, MITGLIEDER),
     'ein echt umsortiertes Layout muss umsortiert bleiben - sonst packt dense es um');
 });
 
 test('isUserOrderedConfig erkennt eine ECHTE Umsortierung weiterhin', () => {
   // Gegenprobe zur Zusicherung oben: sie darf nicht dadurch halten, dass die
   // Funktion nie mehr `true` sagt. Zwei sichtbare Widgets tauschen.
-  const sichtbar = widgets.DEFAULT_WIDGET_CONFIG.filter((w) => w.visible).map((w) => w.id);
+  const sichtbar = LAYOUT_DEFAULT.filter((w) => w.visible).map((w) => w.id);
   assert(sichtbar.length >= 2, `Reichweite: nur ${sichtbar.length} sichtbare Widgets im Default`);
-  const getauscht = widgets.DEFAULT_WIDGET_CONFIG.map((w) => ({ ...w }));
+  const getauscht = LAYOUT_DEFAULT.map((w) => ({ ...w }));
   const a = getauscht.findIndex((w) => w.id === sichtbar[0]);
   const b = getauscht.findIndex((w) => w.id === sichtbar[1]);
   [getauscht[a].order, getauscht[b].order] = [getauscht[b].order, getauscht[a].order];
-  assert(widgets.isUserOrderedConfig(getauscht),
+  assert(widgets.isUserOrderedConfig(getauscht, MITGLIEDER),
     `Tausch von ${sichtbar[0]} und ${sichtbar[1]} wurde nicht als Umsortierung erkannt`);
-  assert(!widgets.isUserOrderedConfig(widgets.DEFAULT_WIDGET_CONFIG),
+  assert(!widgets.isUserOrderedConfig(LAYOUT_DEFAULT, MITGLIEDER),
     'der unveraenderte Default liest sich als Umsortierung');
 });
 
 test('isUserOrderedConfig: ein reiner Sichtbarkeits-Toggle ist keine Umsortierung', () => {
-  const versteckt = widgets.DEFAULT_WIDGET_CONFIG.map((w) => (w.id === 'notes' ? { ...w, visible: false } : w));
-  assert(!widgets.isUserOrderedConfig(versteckt), 'Ausblenden wurde als Umsortierung gelesen');
+  const versteckt = LAYOUT_DEFAULT.map((w) => (w.id === 'notes' ? { ...w, visible: false } : w));
+  assert(!widgets.isUserOrderedConfig(versteckt, MITGLIEDER), 'Ausblenden wurde als Umsortierung gelesen');
   // Und eine abgeschaffte Id aus einem alten Stand ebenso wenig.
-  const alt = [{ id: 'ancient', visible: true, order: -1 }, ...widgets.DEFAULT_WIDGET_CONFIG];
-  assert(!widgets.isUserOrderedConfig(alt), 'eine unbekannte Alt-Id wurde als Umsortierung gelesen');
+  const alt = [{ id: 'ancient', visible: true, order: -1 }, ...LAYOUT_DEFAULT];
+  assert(!widgets.isUserOrderedConfig(alt, MITGLIEDER), 'eine unbekannte Alt-Id wurde als Umsortierung gelesen');
 });
 
 test('Widget-Merge: gespeicherte Reihenfolge gewinnt ueber die Array-Position', () => {
   // `order` und Array-Position koennen auseinanderlaufen; eingefuegt wird an
   // einer Position, also muss vorher sortiert sein.
-  const gemischt = widgets.DEFAULT_WIDGET_CONFIG
+  const gemischt = LAYOUT_DEFAULT
     .filter((w) => w.id !== 'notes')
     .map((w, i) => ({ ...w, order: i }))
     .reverse();
-  const merged = widgets.normalizeDashboardConfig(gemischt).map((w) => w.id);
-  assert(merged.join(',') === widgets.WIDGET_IDS.join(','),
+  const merged = widgets.normalizeDashboardConfig(gemischt, MITGLIEDER).map((w) => w.id);
+  assert(merged.join(',') === LAYOUT_IDS.join(','),
     `Array-Position statt order gelesen: ${merged.join(',')}`);
 });
 
 test('Widget-Merge: Groesse und Sichtbarkeit eines Bestandseintrags bleiben unberuehrt', () => {
-  const gespeichert = widgets.DEFAULT_WIDGET_CONFIG
+  // Auf einer Mitglieder-Kachel geprueft, und mit `visible: false`: ihr
+  // Default ist seit dem Umbau `true`, ein gespeichertes `true` wuerde die
+  // Zusicherung also auch dann halten, wenn nichts uebernommen wuerde.
+  const gespeichert = LAYOUT_DEFAULT
     .filter((w) => w.id !== 'metrics')
-    .map((w) => ({ ...w, visible: w.id === 'tasks' ? true : w.visible, size: w.id === 'tasks' ? '2x2' : w.size }));
-  const merged = widgets.normalizeDashboardConfig(gespeichert);
-  const tasks = merged.find((w) => w.id === 'tasks');
-  assert(tasks.size === '2x2' && tasks.visible === true, 'gespeicherte Groesse/Sichtbarkeit ueberschrieben');
+    .map((w) => ({ ...w, visible: w.id === 'tasks-u1' ? false : w.visible, size: w.id === 'tasks-u1' ? '2x2' : w.size }));
+  const merged = widgets.normalizeDashboardConfig(gespeichert, MITGLIEDER);
+  const meins = merged.find((w) => w.id === 'tasks-u1');
+  assert(meins.size === '2x2' && meins.visible === false, 'gespeicherte Groesse/Sichtbarkeit ueberschrieben');
   // Der Neuzugang erbt dagegen seinen Default - Opt-in-Module erscheinen nicht ungefragt.
-  const health = widgets.normalizeDashboardConfig(layoutOhne('health')).find((w) => w.id === 'health');
+  const health = widgets.normalizeDashboardConfig(layoutOhne('health'), MITGLIEDER).find((w) => w.id === 'health');
   assert(health.visible === false, 'ein neu ergaenztes Opt-in-Widget kam sichtbar herein');
+});
+
+// --------------------------------------------------------
+// Mitglieder-Kacheln: die dynamischen Aufgaben-Ids
+// --------------------------------------------------------
+
+test('Mitglieder-Kacheln: Id-Form und Rueckweg', () => {
+  assert(widgets.memberTaskWidgetId(7) === 'tasks-u7', 'unerwartete Id-Form');
+  assert(widgets.memberTaskWidgetUserId('tasks-u7') === 7, 'Rueckweg zur User-Id fehlgeschlagen');
+  assert(widgets.memberTaskWidgetUserId('tasks-unassigned') === null,
+    'die Sammelkachel darf nicht als Mitglied durchgehen');
+  assert(widgets.memberTaskWidgetUserId('tasks') === null, 'die Familien-Id ist kein Mitglied');
+  assert(widgets.widgetFamily('tasks-u7') === 'tasks' && widgets.widgetFamily('tasks-unassigned') === 'tasks',
+    'die Familie muss `tasks` sein - daran haengen Recht, Name und Zeichen');
+  assert(widgets.widgetFamily('calendar') === 'calendar', 'statische Ids sind ihre eigene Familie');
+});
+
+test('Mitglieder-Kacheln: jede Id ueberlebt die Server-Pruefung', () => {
+  /* Gespiegelt aus server/routes/preferences.js (WIDGET_ID_RE). Eine Id, die
+   * dort durchfaellt, laesst den PUT die GANZE Konfiguration mit 400 ablehnen -
+   * sichtbar waere davon nur, dass sich das Dashboard nicht mehr speichern
+   * laesst. Deshalb steht die Zusicherung hier, wo die Ids entstehen. */
+  const WIDGET_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
+  const falsch = widgets.layoutWidgetIds([1, 2, 42]).filter((id) => !WIDGET_ID_RE.test(id));
+  assert(falsch.length === 0, `Ids, die der Server ablehnen wuerde: ${falsch.join(', ')}`);
+});
+
+test('Mitglieder-Kacheln: die Familien-Id ist selbst keine Kachel', () => {
+  assert(!widgets.layoutWidgetIds(MITGLIEDER).includes('tasks'),
+    '`tasks` traegt Recht und Name, ist aber kein Layout-Eintrag');
+  assert(widgets.layoutWidgetIds(MITGLIEDER).length === widgets.WIDGET_IDS.length + 2,
+    'zwei Mitglieder + Sammelkachel ersetzen genau eine Id');
+});
+
+test('Mitglieder-Kacheln: aufsteigend nach Id, unabhaengig von der Eingabe', () => {
+  // Nicht nach Namen: eine Umbenennung wuerde sonst die Reihenfolge aendern und
+  // jedes Bestandslayout als umsortiert lesen lassen (A1-03).
+  assert(widgets.layoutWidgetIds([9, 3, 3]).slice(0, 3).join(',') === 'tasks-u3,tasks-u9,tasks-unassigned',
+    'Mitglieder-Kacheln stehen nicht aufsteigend nach Id');
+});
+
+test('Mitglieder-Kacheln: ein Weggang nimmt seine Kachel mit', () => {
+  const mitNeun = widgets.defaultWidgetConfig([1, 2, 9]);
+  const merged = widgets.normalizeDashboardConfig(mitNeun, MITGLIEDER);
+  assert(!merged.some((w) => w.id === 'tasks-u9'),
+    'die Kachel eines ausgeschiedenen Mitglieds blieb als Waise stehen');
+});
+
+test('Mitglieder-Kacheln: ein Neuzugang folgt seinem Vorgaenger und ist sichtbar', () => {
+  const gewachsen = widgets.normalizeDashboardConfig(LAYOUT_DEFAULT, [1, 2, 3]);
+  const at = gewachsen.findIndex((w) => w.id === 'tasks-u3');
+  assert(at > 0 && gewachsen[at - 1].id === 'tasks-u2',
+    `Neuzugang landete nicht hinter tasks-u2, sondern auf Position ${at}`);
+  assert(gewachsen[at].visible === true, 'die Kachel eines neuen Mitglieds kam ausgeblendet herein');
+  assert(gewachsen[at].size === '1x2', 'die Kachel eines neuen Mitglieds erbt nicht die Listenform');
+  // DER EIGENTLICHE PUNKT (A1-03, auf den dynamischen Block ausgedehnt): ein
+  // Haushalt, der ein Mitglied gewinnt, hat deshalb nicht umsortiert.
+  assert(!widgets.isUserOrderedConfig(gewachsen, [1, 2, 3]),
+    'ein Neuzugang liest sich als Umsortierung - das Raster faellt auf preserve-order');
+});
+
+test('Mitglieder-Kacheln: die Obergrenze des Servers wird nie ueberschritten', () => {
+  const grosseFamilie = [...Array(100).keys()].map((n) => n + 1);
+  const anzahl = widgets.layoutWidgetIds(grosseFamilie).length;
+  assert(anzahl <= 64, `${anzahl} Eintraege - der PUT wuerde die ganze Konfiguration ablehnen`);
+});
+
+test('Mitglieder-Kacheln: die Listenform gilt auch fuer die dynamischen Ids', () => {
+  assert(widgets.defaultWidgetSize('tasks-u7') === '1x2', 'Mitglieder-Kachel ist keine Listenkachel');
+  assert(widgets.defaultWidgetSize('tasks-unassigned') === '1x2', 'Sammelkachel ist keine Listenkachel');
+  assert(widgets.defaultWidgetVisible('tasks-u7') === true, 'Mitglieder-Kacheln sind ab Werk sichtbar');
+  // Die Kennzahlreihe filtert weiter ueber COCKPIT_COVERED_WIDGETS - `tasks`
+  // muss dort stehen bleiben, sonst steht eine Aufgaben-Kachel in der Reihe.
+  assert(widgets.COCKPIT_COVERED_WIDGETS.has('tasks'),
+    'ohne `tasks` zeigt die Kennzahlreihe eine Aufgaben-Kachel neben den Aufgaben-Kacheln');
+  assert(!widgets.DEFAULT_HIDDEN_WIDGETS.has('tasks'),
+    'die Aufgaben-Kacheln sind ab Werk sichtbar, das Cockpit schweigt dafuer');
 });
 
 // --------------------------------------------------------

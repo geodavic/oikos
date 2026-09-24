@@ -5599,6 +5599,41 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    version: 152,
+    description: 'Completion attribution: who actually did the task (tasks + housekeeping decay chores)',
+    up: `
+      -- WHO DID THE WORK IS NOT THE SAME QUESTION AS WHO WAS SUPPOSED TO.
+      --
+      -- Until now a completed task recorded only status = 'done'. The points
+      -- went to the ASSIGNEES (rewardTargets in server/services/rewards.js), so
+      -- a parent doing a child's chore and ticking it off paid the child. There
+      -- was no column that could have said otherwise - the information simply
+      -- was not collected.
+      --
+      -- completed_by is that column. The clients ask on every completion and
+      -- send the answer along; the rewards service reads it back off the row and
+      -- credits that person instead of the assignees.
+      --
+      -- NULLABLE ON PURPOSE, and it stays that way. Three writers cannot answer
+      -- the question: the CalDAV inbound sync (a checkmark arriving from a phone
+      -- knows no household member), API tokens, and every client older than this
+      -- migration. They keep the previous assignee-based crediting rather than
+      -- being rejected. NULL therefore means "not attributed", never "nobody".
+      --
+      -- Existing done tasks are not backfilled. reward_ledger could be mined for
+      -- a plausible guess, but a guess in a column people will read as a fact is
+      -- worse than an honest blank.
+      ALTER TABLE tasks ADD COLUMN completed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE tasks ADD COLUMN completed_at TEXT;
+
+      -- Same question for the housekeeping decay chores, which are a separate
+      -- table with no assignee and no points - here the name is the entire
+      -- point, since nothing else records who kept the area up.
+      ALTER TABLE housekeeping_decay_tasks
+        ADD COLUMN last_completed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    `,
+  },
 ];
 
 /**

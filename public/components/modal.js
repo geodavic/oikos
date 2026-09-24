@@ -366,21 +366,26 @@ function _resumeSuspendedModal({ overlay, id, title, titleId, snapshot, restoreF
 
 /**
  * Stellt die Frage über einem bereits geparkten Modal und kehrt erst zurück,
- * wenn der Dialog aus dem DOM verschwunden ist. Beide Aufrufer (Dirty-Guard und
- * confirmOverModal) brauchen genau das: solange der Dialog noch hängt, wäre das
- * Zurückholen ein Zustand mit zwei Dialogen, doppelter Titel-id und einem
- * Escape-Handler, der schon auf das Formular zeigt.
+ * wenn der Dialog aus dem DOM verschwunden ist. Alle Aufrufer (Dirty-Guard,
+ * confirmOverModal, selectOverModal) brauchen genau das: solange der Dialog noch
+ * hängt, wäre das Zurückholen ein Zustand mit zwei Dialogen, doppelter Titel-id
+ * und einem Escape-Handler, der schon auf das Formular zeigt.
  *
- * Der Dialog entsteht synchron im Promise-Executor von confirmModal, deshalb
- * lässt sich sein Overlay direkt nach dem Aufruf greifen.
+ * Der Dialog entsteht synchron im Promise-Executor von confirmModal bzw.
+ * selectModal, deshalb lässt sich sein Overlay direkt nach dem Aufruf greifen.
+ *
+ * `open` is a zero-argument function that starts the dialog and returns its
+ * promise - confirm and select differ only in that. Everything else (waiting for
+ * the overlay to disappear, and bringing the parked modal back when the dialog
+ * throws) is the same for any dialog and lives here once.
  */
-async function _confirmOverSuspended(message, opts, suspended) {
-  const pending = confirmModal(message, opts);
+async function _dialogOverSuspended(open, suspended) {
+  const pending = open();
   const dialogOverlay = document.getElementById('shared-modal-overlay');
   try {
-    const confirmed = await pending;
+    const answer = await pending;
     await _awaitOverlayRemoval(dialogOverlay);
-    return confirmed;
+    return answer;
   } catch (err) {
     // Ein geparktes Modal ist inert und damit unbedienbar. Scheitert der Dialog,
     // muss es zurückkommen - sonst steht die App bis zum Reload.
@@ -662,11 +667,11 @@ export async function closeModal({ force = false } = {}) {
       // Dirty Modal in den Confirm-Slot parken (modalState → 'confirming').
       const suspended = _suspendActiveModal();
 
-      const confirmed = await _confirmOverSuspended(t('modal.unsavedChanges'), {
+      const confirmed = await _dialogOverSuspended(() => confirmModal(t('modal.unsavedChanges'), {
         danger: false,
         confirmLabel: t('modal.discardChanges'),
         detail: t('modal.unsavedChangesDetail'),
-      }, suspended);
+      }), suspended);
 
       if (!confirmed) {
         // Verwerfen abgebrochen → dirty Modal exakt wiederherstellen, samt
@@ -781,7 +786,20 @@ export function promptModal(label, defaultValue = '') {
 // selectModal
 // --------------------------------------------------------
 
-export function selectModal(label, options) {
+/**
+ * Single-choice dialog over a `<select>`.
+ *
+ * `opts.value` preselects an option. It is applied to the mounted control rather
+ * than rendered as a `selected` attribute on purpose: the option markup is
+ * asserted verbatim by the frontend audit (escaping rule 1.8), and a preselect
+ * has no business changing how values get escaped.
+ *
+ * @param {string} label
+ * @param {{value: string, label: string}[]} options
+ * @param {{ value?: string }} [opts]
+ * @returns {Promise<string|null>} the chosen value, or null when cancelled
+ */
+export function selectModal(label, options, opts = {}) {
   return new Promise((resolve) => {
     let resolved = false;
 
@@ -815,6 +833,14 @@ export function selectModal(label, options) {
         const form   = panel.querySelector('#select-modal-form');
         const select = panel.querySelector('#select-modal-input');
         const cancel = panel.querySelector('#select-modal-cancel');
+
+        // Only when the value is actually on offer - assigning an unknown value
+        // to a <select> silently blanks it, which would look like "no answer yet"
+        // on a dialog whose whole job is to carry a default.
+        if (opts.value !== undefined && opts.value !== null
+            && options.some((o) => String(o.value) === String(opts.value))) {
+          select.value = String(opts.value);
+        }
 
         form.addEventListener('submit', (e) => {
           e.preventDefault();
@@ -903,13 +929,47 @@ export async function confirmOverModal(message, opts = {}) {
   if (!activeOverlay || modalState !== 'open') return confirmModal(message, opts);
 
   const suspended = _suspendActiveModal();
-  const confirmed = await _confirmOverSuspended(message, opts, suspended);
+  const confirmed = await _dialogOverSuspended(() => confirmModal(message, opts), suspended);
   // Erst zurückholen, dann ggf. schließen: das Abräumen soll durch die reguläre
   // Schließ-Logik laufen, nicht an ihrem 'closing'-Wächter vorbei. Der Fokus
   // kehrt dabei auf den auslösenden Knopf zurück (siehe _resumeSuspendedModal).
   _resumeSuspendedModal(suspended);
   if (confirmed) await closeModal({ force: true });
   return confirmed;
+}
+
+/**
+ * `selectModal` ABOVE an open modal, without destroying it - the select-shaped
+ * twin of `confirmOverModal`, and for the same reason.
+ *
+ * Asking a question from inside a form modal is exactly where plain `selectModal`
+ * goes wrong: it runs through `openModal`, which force-closes whatever is open,
+ * so the cancel path - the only reason to offer a cancel at all - would throw
+ * away the user's unsaved input without the dirty guard ever seeing it (#625).
+ *
+ * The parked modal comes back either way - and this is where it differs from
+ * `confirmOverModal`, which closes it on a yes. There, the confirmation IS the
+ * decision that ends the modal. Here the answer is an INPUT to a write that has
+ * not happened yet: the caller still has to save, may still fail and needs
+ * somewhere to say so, and in a detail view the panel is expected to stay put
+ * while a row inside it is ticked off. Closing on an answer would take the rest
+ * of the form down with it. Callers that do want the modal gone close it
+ * themselves once their write has landed.
+ *
+ * Cancelling restores it untouched, including its dirty snapshot and focus.
+ *
+ * Without an open modal this is plain `selectModal`, so a handler shared between
+ * a list row and a detail view needs no case distinction.
+ *
+ * @returns {Promise<string|null>} the chosen value, or null when cancelled
+ */
+export async function selectOverModal(label, options, opts = {}) {
+  if (!activeOverlay || modalState !== 'open') return selectModal(label, options, opts);
+
+  const suspended = _suspendActiveModal();
+  const chosen = await _dialogOverSuspended(() => selectModal(label, options, opts), suspended);
+  _resumeSuspendedModal(suspended);
+  return chosen;
 }
 
 // --------------------------------------------------------

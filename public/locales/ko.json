@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "누가 완료했나요?",
+        "completedByBulkTitle": "누가 이것들을 완료했나요?",
+        "completedByLabel": "완료한 사람",
         "swipeSidesSwapped": "스와이프 방향이 서로 바뀌었습니다. 주요 작업이 이제 반대쪽에 있습니다.",
         "apply": "추가",
         "searchClear": "검색 지우기",
@@ -282,6 +285,9 @@
         "todayMore_one": "외 {{count}}건",
         "memberOpenTasks": "할 일 {{count}}개",
         "memberOpenTasks_one": "할 일 {{count}}개",
+        "memberTasksWidget": "{{name}}의 작업",
+        "unassignedTasks": "미할당",
+        "unassignedTasksEmpty": "모두 할당됨",
         "manage": "관리",
         "todayNothingElseTomorrow": "오늘은 더 이상 일정이 없습니다. 내일: {{title}}"
     },
@@ -368,6 +374,13 @@
         "filterGroupPriority": "우선순위",
         "filterGroupPerson": "담당자",
         "filterGroupTag": "태그",
+        "filterGroupCategory": "카테고리",
+        "filterGroupDue": "마감 기한",
+        "dueFilterToday": "오늘",
+        "dueFilterDays": "{{days}}일 이내",
+        "dueFilterAny": "전체",
+        "dueFilterDateLabel": "마감 날짜",
+        "dueFilterChip": "마감: {{label}}",
         "filterClearAll": "모든 필터 초기화",
         "navLabelOverdue": "할 일, {{count}}개 기한 초과",
         "statusArchived": "보관됨",

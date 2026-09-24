@@ -103,6 +103,16 @@ db.prepare(`
   VALUES ('Heute erledigt', 'medium', 'done', ?, 'all', ?)
 `).run(todayLocal, PARENT);
 
+/* Eine PRIVATE Aufgabe des Elternteils, ihm selbst zugewiesen. Sie ist der
+ * Prüfstein für `tasksByAssignee`: die Eimer sind nach Zuständigkeit gebaut,
+ * und ein Eimer, der neben den sichtbaren Aufgaben auch die Zahl der
+ * unsichtbaren trägt, verrät genau das, was die Zeilen-Privatsphäre schützt. */
+const PRIVAT_ID = db.prepare(`
+  INSERT INTO tasks (title, priority, status, due_date, visibility, created_by)
+  VALUES ('Geheime Steuerprüfung', 'urgent', 'open', ?, 'private', ?)
+`).run(todayLocal, PARENT).lastInsertRowid;
+db.prepare('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)').run(PRIVAT_ID, PARENT);
+
 db.prepare(`
   INSERT INTO meals (date, meal_type, title, created_by) VALUES (?, 'dinner', 'Lasagne', ?)
 `).run(todayLocal, PARENT);
@@ -285,6 +295,7 @@ test('Aufgaben auf `none`: weder Liste noch Zählstände noch die Pro-Mitglied-L
   const body = await dashboardAs(KID);
   assert.deepEqual(body.urgentTasks, []);
   assert.deepEqual(body.memberTodayTasks, [], 'die Pro-Mitglied-Aggregation ist dieselbe Aufgabenmenge, nur gezählt');
+  assert.deepEqual(body.tasksByAssignee, [], 'die Mitglieder-Kacheln sind dieselbe Aufgabenmenge, nur partitioniert');
   assert.equal(body.openTaskCount, 0);
   assert.equal(body.overdueTaskCount, 0);
   assert.equal(body.tasksDoneToday, 0);
@@ -292,12 +303,37 @@ test('Aufgaben auf `none`: weder Liste noch Zählstände noch die Pro-Mitglied-L
   assert.equal(body.upcomingEvents[0]?.title, 'Elterngespräch Schule', 'der Kalender bleibt');
 });
 
+test('Mitglieder-Kacheln: eine private Aufgabe leckt weder als Zeile noch als ZAHL', async () => {
+  clearModuleDenials(KID);
+  const body = await dashboardAs(KID);
+
+  assert.ok(!JSON.stringify(body).includes('Geheime Steuerprüfung'),
+    'der Titel einer privaten Aufgabe darf nirgendwo in der Antwort stehen');
+
+  /* DER ZWEITE HALBE SCHRITT, DEN EIN TITEL-VERGLEICH NICHT MACHT. Die
+   * Kachel des Elternteils trägt `open_count`, und dieser Zähler kommt aus
+   * derselben Abfrage - hinge er nicht am selben `visibilityWhere`, stünde in
+   * der Kachel des Elternteils eine Zahl, die das Kind nicht sehen darf. Ein
+   * Leck, das kein Wort verrät, sondern eine Ziffer. */
+  const elternEimer = body.tasksByAssignee.find((b) => b.user_id === PARENT);
+  const sichtbareEigene = body.urgentTasks.filter(
+    (t) => (t.assigned_users ?? []).some((u) => u.id === PARENT)).length;
+  assert.equal(elternEimer?.open_count ?? 0, sichtbareEigene,
+    'der Zähler der Kachel zählt mehr, als die Betrachterin sehen darf');
+
+  // Gegenprobe: dem Elternteil selbst gehört die Aufgabe, er sieht sie.
+  const eigen = await dashboardAs(PARENT);
+  assert.ok(JSON.stringify(eigen).includes('Geheime Steuerprüfung'),
+    'Vorbedingung: für die Urheberin ist die Aufgabe sichtbar - sonst prüft der Test nichts');
+});
+
 test('Jedes gesperrte Modul verschwindet, und keins nimmt ein anderes mit', async () => {
   // Modul für Modul einzeln: ein Filter, der beim Sperren von A auch B leert,
   // fällt hier auf - eine Sperre auf alles zugleich könnte das nicht zeigen.
   const probes = {
     calendar: (b) => b.upcomingEvents.length + b.birthdays.length + b.birthdayCount,
-    tasks: (b) => b.urgentTasks.length + b.openTaskCount + b.overdueTaskCount + b.tasksDoneToday,
+    tasks: (b) => b.urgentTasks.length + b.openTaskCount + b.overdueTaskCount + b.tasksDoneToday
+      + b.tasksByAssignee.length,
     meals: (b) => b.todayMeals.length,
     notes: (b) => b.pinnedNotes.length + b.pinnedNotesCount,
     shopping: (b) => b.shoppingLists.length + b.shoppingOpenCount + b.shoppingOpenLists,

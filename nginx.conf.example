@@ -29,6 +29,12 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
+    # Upload-Größe: Nginx' Default sind 1 MB und würde Foto-Uploads (Geburtstage,
+    # Inventar) mit 413 abweisen, bevor sie die App erreichen. Muss mindestens so
+    # groß sein wie JSON_BODY_LIMIT der App - beim Backup-Restore zusätzlich
+    # BACKUP_UPLOAD_LIMIT (Default 100m) berücksichtigen.
+    client_max_body_size 20m;
+
     # Proxy zu Yuvomi
     location / {
         proxy_pass http://127.0.0.1:3000;

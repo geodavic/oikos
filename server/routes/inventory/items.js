@@ -11,7 +11,7 @@ import express from 'express';
 import * as db from '../../db.js';
 import { createLogger } from '../../logger.js';
 import {
-  str, oneOf, num, date, id as idParam, collectErrors, MAX_TITLE, MAX_TEXT, MAX_SHORT,
+  str, oneOf, num, date, id as idParam, collectErrors, MAX_TITLE, MAX_TEXT, MAX_SHORT, MAX_PHOTO_LENGTH,
 } from '../../middleware/validate.js';
 import { documentLinksFor, loadDocumentLinks, replaceDocumentLinks } from '../../services/document-links.js';
 import {
@@ -29,7 +29,6 @@ const router = express.Router();
 const CONDITIONS = ['new', 'good', 'fair', 'poor'];
 const STATUSES = ['active', 'sold', 'disposed', 'lost'];
 const CURRENCY_RE = /^[A-Z]{3}$/;
-const MAX_PHOTO_LENGTH = 6_990_507; // ~5 MB raw image in base64, same cap as birthdays.js
 const PHOTO_RE = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 const DOCS = { table: 'inventory_item_documents', ownerColumn: 'item_id' };
 

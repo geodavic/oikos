@@ -129,8 +129,14 @@ app.use(compression());
 // --------------------------------------------------------
 // Request-Parsing
 // --------------------------------------------------------
-app.use(express.json({ limit: '7mb' }));
-app.use(express.urlencoded({ extended: true, limit: '7mb' }));
+// Die Obergrenze richtet sich nach den größten JSON-Nutzlasten: Bilder, die als
+// Data-URL inline mitgeschickt werden (Geburtstags- und Inventar-Fotos, siehe
+// MAX_PHOTO_LENGTH in middleware/validate.js). Sie muss über deren Base64-Länge
+// liegen, sonst antwortet der Body-Parser mit 413, bevor die Route ihre eigene,
+// sprechendere Fehlermeldung ausgeben kann.
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '20mb';
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: JSON_BODY_LIMIT }));
 
 // JSON-Parse-Fehler abfangen (gibt sonst HTML zurück)
 app.use((err, req, res, next) => {
@@ -138,7 +144,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Invalid JSON in request body.', code: 400 });
   }
   if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Request body too large (max. 7 MB).', code: 413 });
+    return res.status(413).json({ error: `Request body too large (max. ${JSON_BODY_LIMIT}).`, code: 413 });
   }
   next(err);
 });

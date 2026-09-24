@@ -1,5 +1,8 @@
 {
     "common": {
+        "completedByTitle": "Vem gjorde detta?",
+        "completedByBulkTitle": "Vem gjorde dessa?",
+        "completedByLabel": "Utförd av",
         "swipeSidesSwapped": "Svepriktningarna har bytt plats - huvudåtgärden finns nu på andra sidan.",
         "apply": "Lägg till",
         "searchClear": "Rensa sökning",
@@ -270,6 +273,9 @@
         "todayMore_one": "+{{count}} till idag",
         "memberOpenTasks": "{{count}} uppgifter",
         "memberOpenTasks_one": "{{count}} uppgift",
+        "memberTasksWidget": "Uppgifter för {{name}}",
+        "unassignedTasks": "Ej tilldelade",
+        "unassignedTasksEmpty": "Allt är tilldelat",
         "manage": "Hantera",
         "todayNothingElseTomorrow": "Inget mer idag - imorgon: {{title}}"
     },
@@ -352,6 +358,13 @@
         "filterClearAll": "Rensa alla filter",
         "filterGroupPerson": "Person",
         "filterGroupTag": "Tagg",
+        "filterGroupCategory": "Kategori",
+        "filterGroupDue": "Förfaller senast",
+        "dueFilterToday": "Idag",
+        "dueFilterDays": "{{days}} dagar",
+        "dueFilterAny": "När som helst",
+        "dueFilterDateLabel": "Förfaller senast datum",
+        "dueFilterChip": "Förfaller: {{label}}",
         "filterGroupPriority": "Prioritet",
         "filterGroupStatus": "Status",
         "swipedDoneToast": "Markerad som klar.",

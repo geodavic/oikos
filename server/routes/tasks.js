@@ -25,6 +25,7 @@ import {
   removeTagEverywhere, renameTag, setTags, tagKey, tagsKey, taskIdsWithTag,
 } from '../utils/task-tags.js';
 import * as v from '../middleware/validate.js';
+import { resolveHouseholdMember } from '../utils/household-member.js';
 
 const log = createLogger('Tasks');
 
@@ -183,6 +184,22 @@ function countRebasableTasks(points) {
 // Hilfsfunktionen
 // --------------------------------------------------------
 
+/**
+ * The name behind `completed_by`, for the "Completed by" line.
+ *
+ * A scalar subquery rather than another LEFT JOIN: every query below already
+ * joins `users` once as `u` for the assignee, and a second join would mean
+ * touching each FROM clause and inventing a non-colliding alias. NULL for
+ * everything completed before migration 152 and for every unattributed write,
+ * so the UI has to treat a missing name as normal either way.
+ *
+ * Name only, no avatar colour: the picker is a plain list of names, and so is
+ * the line it feeds. A colour nothing draws would just be a wider payload.
+ */
+const COMPLETED_BY_SQL = `(
+  SELECT cu.display_name FROM users cu WHERE cu.id = t.completed_by
+) AS completed_by_name`;
+
 const ASSIGNED_USERS_SQL = `(
   SELECT json_group_array(json_object(
     'id', u.id, 'display_name', u.display_name, 'color', u.avatar_color,
@@ -285,7 +302,7 @@ function loadSubtasks(taskId, me) {
   // Mit den Tags käme deren Freitext dazu.
   const rows = db.get().prepare(`
     SELECT t.*, u.display_name AS assigned_name, u.avatar_color AS assigned_color,
-      u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}
+      u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}, ${COMPLETED_BY_SQL}
     FROM tasks t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.parent_task_id = ?
@@ -338,6 +355,42 @@ function validateTaskInput(body, isCreate = true, currentRule = undefined) {
     v.num(body.points,      'points'),
     validateTags(body.tags),
   ]);
+}
+
+/**
+ * Who completed the task? Validates the value from the request body.
+ *
+ * DELIBERATELY OPTIONAL. The surfaces ask on every completion, but the server
+ * must not turn that into a requirement: the CalDAV inbound sync, API tokens and
+ * any older client cannot answer the question, and a 400 would take completing a
+ * task away from them entirely. Without an answer the previous attribution via
+ * the assignees (rewardTargets) stands.
+ *
+ * @returns {{ value: number|null, error: string|null }}
+ */
+function resolveCompletedBy(body) {
+  return resolveHouseholdMember(db.get(), body?.completed_by, 'completed_by', v.id);
+}
+
+/**
+ * The two columns that travel with a status change. Entering 'done' records who
+ * it was and when; every path out of 'done' clears both again, because a task
+ * that is open again has no completer. Same rule in PUT and PATCH - it lives
+ * here so the two cannot drift apart.
+ *
+ * @returns {{ completedBy: number|null, completedAt: string|null }}
+ */
+function completionColumns(prevStatus, nextStatus, completedBy, prevCompletedBy, prevCompletedAt) {
+  if (nextStatus === 'done' && prevStatus !== 'done') {
+    return { completedBy: completedBy ?? null, completedAt: nowStamp() };
+  }
+  if (nextStatus !== 'done') return { completedBy: null, completedAt: null };
+  // 'done' stays 'done': a fresh answer may correct the record, but silence must
+  // not erase it - otherwise any unrelated PUT would wipe the attribution.
+  return {
+    completedBy: completedBy ?? prevCompletedBy ?? null,
+    completedAt: prevCompletedAt ?? nowStamp(),
+  };
 }
 
 // --------------------------------------------------------
@@ -609,12 +662,12 @@ router.delete('/categories/:key', (req, res) => {
 // --------------------------------------------------------
 // GET /api/v1/tasks
 // Listet Top-Level-Aufgaben mit optionalen Filtern.
-// Query-Parameter: status, priority, assigned_to, category, archived
+// Query-Parameter: status, priority, assigned_to, category, archived, due_until
 // Response: { data: Task[] }  (jede Task enthält subtask_progress)
 // --------------------------------------------------------
 router.get('/', (req, res) => {
   try {
-    const { status, priority, assigned_to, category, tag, include_future, archived } = req.query;
+    const { status, priority, assigned_to, category, tag, include_future, archived, due_until } = req.query;
 
     let sql = `
       SELECT
@@ -623,6 +676,7 @@ router.get('/', (req, res) => {
         u.avatar_color AS assigned_color,
         u.avatar_data AS assigned_avatar,
         ${ASSIGNED_USERS_SQL},
+        ${COMPLETED_BY_SQL},
         -- Unteraufgaben tragen eine EIGENE Sichtbarkeit, und diese Liste hing nie
         -- an ihr: unter einer geteilten Elternaufgabe lief eine private
         -- Unteraufgabe samt Titel mit, und Zähler wie Fortschrittsbalken zählten
@@ -696,7 +750,19 @@ router.get('/', (req, res) => {
                              AND ta.user_id IN (${assignees.map(() => '?').join(', ')}))`;
       params.push(...assignees);
     }
-    if (category)    { sql += ' AND t.category = ?';    params.push(category); }
+    // Categories are OR-ed like priority: a task has exactly one category.
+    const categories = asList(category);
+    if (categories.length) {
+      sql += ` AND t.category IN (${categories.map(() => '?').join(', ')})`;
+      params.push(...categories);
+    }
+    // Due-date cutoff (inclusive). Tasks without a due date stay visible:
+    // they have no deadline to fall outside of, and hiding them would make
+    // undated chores silently disappear from the default view.
+    if (typeof due_until === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(due_until)) {
+      sql += ' AND (t.due_date IS NULL OR t.due_date <= ?)';
+      params.push(due_until);
+    }
     // Tag-Filter ohne Rücksicht auf Groß-/Kleinschreibung: die Werte kommen von
     // fremden Servern, dort ist „Garten" und „garten" dasselbe Etikett.
     //
@@ -753,7 +819,7 @@ router.get('/:id', (req, res) => {
     const me = req.authUserId || req.session.userId;
     const task = db.get().prepare(`
       SELECT t.*, u.display_name AS assigned_name, u.avatar_color AS assigned_color,
-        u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}
+        u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}, ${COMPLETED_BY_SQL}
       FROM tasks t
       LEFT JOIN users u ON t.assigned_to = u.id
       WHERE t.id = ? AND t.parent_task_id IS NULL
@@ -863,7 +929,7 @@ router.post('/', (req, res) => {
 
     const task = db.get().prepare(`
       SELECT t.*, u.display_name AS assigned_name, u.avatar_color AS assigned_color,
-        u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}
+        u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}, ${COMPLETED_BY_SQL}
       FROM tasks t LEFT JOIN users u ON t.assigned_to = u.id
       WHERE t.id = ?
     `).get(taskId);
@@ -897,6 +963,9 @@ router.put('/:id', (req, res) => {
 
     const errors = validateTaskInput(req.body, false, task.recurrence_rule);
     if (errors.length) return res.status(400).json({ error: errors.join(' '), code: 400 });
+
+    const vCompletedBy = resolveCompletedBy(req.body);
+    if (vCompletedBy.error) return res.status(400).json({ error: vCompletedBy.error, code: 400 });
 
     const {
       title           = task.title,
@@ -955,18 +1024,26 @@ router.put('/:id', (req, res) => {
     let pending = false;
     let undone  = 0;
     let updated;
+    // Same rule as in PATCH /:id/status. 'archived' cannot interfere here: it is
+    // already remapped above to `status` = the previous status, so the "entering
+    // done" branch never fires for it.
+    const done = completionColumns(
+      task.status, status, vCompletedBy.value, task.completed_by, task.completed_at,
+    );
     db.get().transaction(() => {
       db.get().prepare(`
         UPDATE tasks SET
           title = ?, description = ?, category = ?, priority = ?,
           status = ?, start_date = ?, due_date = ?, due_time = ?, assigned_to = ?,
           is_recurring = ?, recurrence_rule = ?, recurrence_from_completion = ?,
-          points = ?, visibility = ?, countdown = ?
+          points = ?, visibility = ?, countdown = ?,
+          completed_by = ?, completed_at = ?
         WHERE id = ?
       `).run(title.trim(), description, category, priority,
              status, start_date, due_date, due_time, firstUid,
              is_recurring ? 1 : 0, recurrence_rule, recurrence_from_completion ? 1 : 0,
-             points, visibility, countdown ? 1 : 0, req.params.id);
+             points, visibility, countdown ? 1 : 0,
+             done.completedBy, done.completedAt, req.params.id);
       setAssignments(db.get(), task.id, userIds);
       if (req.body.tags !== undefined) setTags(db.get(), task.id, req.body.tags);
       if (syncTarget !== undefined) {
@@ -992,7 +1069,7 @@ router.put('/:id', (req, res) => {
       // nicht über Lesearbeit gehalten wird.
       updated = db.get().prepare(`
         SELECT t.*, u.display_name AS assigned_name, u.avatar_color AS assigned_color,
-          u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}
+          u.avatar_data AS assigned_avatar, ${ASSIGNED_USERS_SQL}, ${COMPLETED_BY_SQL}
         FROM tasks t LEFT JOIN users u ON t.assigned_to = u.id
         WHERE t.id = ?
       `).get(req.params.id);
@@ -1171,6 +1248,10 @@ function spawnRecurrenceFollowup(task) {
     .all(task.id);
 
   db.get().transaction(() => {
+    // completed_by/completed_at are deliberately NOT in this column list. The
+    // follow-up is a fresh, open occurrence that nobody has done yet - carrying
+    // the attribution over would credit the next run to whoever did the last one
+    // and, worse, would look like a fact rather than a copy.
     const newTask = db.get().prepare(`
       INSERT INTO tasks (title, description, category, priority, status,
         start_date, due_date, due_time, assigned_to, created_by, is_recurring, recurrence_rule,
@@ -1235,6 +1316,9 @@ router.patch('/:id/status', (req, res) => {
     if (!VALID_STATUSES.includes(status))
       return res.status(400).json({ error: `Invalid status. Allowed: ${VALID_STATUSES.join(', ')}`, code: 400 });
 
+    const vCompletedBy = resolveCompletedBy(req.body);
+    if (vCompletedBy.error) return res.status(400).json({ error: vCompletedBy.error, code: 400 });
+
     // Ganze Zeile, nicht nur der Status: die Rückrichtung (#617) braucht die
     // externen Kennungen, um den Statuswechsel dem CalDAV-Objekt zuzuordnen.
     const prev = db.get().prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
@@ -1257,8 +1341,15 @@ router.patch('/:id/status', (req, res) => {
     // ohne Statuswechsel gibt es auch nichts zu pushen.
     let pending = false;
     let undone  = 0;
+    const done = completionColumns(
+      prev.status, status, vCompletedBy.value, prev.completed_by, prev.completed_at,
+    );
     db.get().transaction(() => {
-      db.get().prepare('UPDATE tasks SET status = ? WHERE id = ?').run(status, req.params.id);
+      db.get().prepare('UPDATE tasks SET status = ?, completed_by = ?, completed_at = ? WHERE id = ?')
+        .run(status, done.completedBy, done.completedAt, req.params.id);
+      // The attribution is not a mirrored field: markTodoOutbound compares a
+      // fixed field list that does not include it. A VTODO has no notion of a
+      // completer, so there is nothing to push for it.
       pending = markTodoOutbound('tasks', prev, { ...prev, status });
 
       syncHousekeepingPaymentStatus(db.get(), req.params.id, status);

@@ -1,7 +1,7 @@
 import express from 'express';
 import { createLogger } from '../logger.js';
 import * as db from '../db.js';
-import { collectErrors, date as validateDate, str, MAX_SHORT, MAX_TEXT, MAX_TITLE } from '../middleware/validate.js';
+import { collectErrors, date as validateDate, str, MAX_PHOTO_LENGTH, MAX_SHORT, MAX_TEXT, MAX_TITLE } from '../middleware/validate.js';
 import {
   deleteBirthdayArtifacts,
   hydrateBirthday,
@@ -13,7 +13,6 @@ import {
 
 const log = createLogger('Birthdays');
 const router = express.Router();
-const MAX_PHOTO_LENGTH = 6_990_507; // ~5 MB raw image in base64
 const PHOTO_RE = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 
 function validatePhotoData(val) {

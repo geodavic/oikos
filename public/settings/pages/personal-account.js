@@ -37,7 +37,7 @@ function avatarEditorHtml(user) {
       <button type="button" class="settings-avatar-button" id="profile-avatar-preview" aria-label="${t('settings.profilePictureLabel')}">
         ${avatarHtml(user, 'settings-avatar settings-avatar--lg')}
       </button>
-      <input class="sr-only" type="file" id="profile-avatar-file" accept="image/png,image/jpeg,image/webp" aria-label="${t('settings.profilePictureLabel')}" aria-describedby="profile-error" tabindex="-1">
+      <input class="sr-only" type="file" id="profile-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="${t('settings.profilePictureLabel')}" aria-describedby="profile-error" tabindex="-1">
       <div class="settings-avatar-actions">
         <button type="button" class="settings-avatar-action" id="profile-avatar-edit" aria-label="${t('settings.profilePictureLabel')}" title="${t('settings.profilePictureLabel')}">
           <i data-lucide="edit-2" aria-hidden="true"></i>
@@ -74,28 +74,8 @@ function setAvatarPreview(container, user) {
 }
 
 async function readImageAsDataUrl(file) {
-  if (!file) return undefined;
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    throw new Error(t('settings.profilePictureTypeError'));
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error(t('settings.profilePictureFileTooLarge'));
-  }
-
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error(t('settings.profilePictureReadError')));
-    reader.readAsDataURL(file);
-  });
-
-  const { openCropDialog } = await import('/utils/avatar-crop.js');
-  const cropped = await openCropDialog(dataUrl);
-  if (cropped === null) return undefined;
-  if (cropped.length > MAX_AVATAR_DATA_LENGTH) {
-    throw new Error(t('settings.profilePictureTooLarge'));
-  }
-  return cropped;
+  const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+  return pickCroppedImage(file, { maxLength: MAX_AVATAR_DATA_LENGTH });
 }
 
 const SETTINGS_NOTICE_KEY = 'yuvomi:settings:notice';
