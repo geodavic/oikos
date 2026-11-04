@@ -29,6 +29,7 @@ import { MODULE_ICON, moduleIconHTML } from '/nav-icons.js';
 import { exitWallMode, isWallActive, syncWallMode } from '/utils/wall-mode.js';
 import { rememberLayoutHint, layoutHintSizes } from '/utils/dashboard-layout-hint.js';
 import { askCompletedBy } from '/utils/completed-by.js';
+import { DINNER_WIDGET_LABEL, renderDinnerWidget, hydrateDinnerWidgets } from '/utils/dinner-widget.js'; // fork: meal sprints
 
 // Hält den AbortController des aktuellen FAB-Listeners - wird bei jedem render() erneuert.
 let _fabController = null;
@@ -242,7 +243,7 @@ function maybeHintCustomize(container) {
 // Widget → Modul-Slug für die „Modul deaktiviert?"-Prüfung. Widgets ohne Eintrag
 // (family, weather) sind immer verfügbar. Modulweit, damit Grid-Filter und
 // Wieder-Einblenden-Leiste dieselbe Sichtbarkeitsregel teilen.
-const MODULE_FOR_WIDGET = { tasks: 'tasks', calendar: 'calendar', shopping: 'shopping', meals: 'meals', notes: 'notes', birthdays: 'birthdays', budget: 'budget', rewards: 'rewards', health: 'health', cycle: 'health', housekeeping: 'housekeeping' };
+const MODULE_FOR_WIDGET = { tasks: 'tasks', calendar: 'calendar', shopping: 'shopping', meals: 'meals', notes: 'notes', birthdays: 'birthdays', budget: 'budget', rewards: 'rewards', health: 'health', cycle: 'health', housekeeping: 'housekeeping', dinner: 'recipes' /* fork */ };
 
 /* DER COUNTDOWN IST EIN WIDGET, DAS ES ERST GIBT, WENN JEMAND ETWAS MARKIERT
  * HAT (#647). Er hat keine eigene Seite und keinen eigenen Bestand: seine
@@ -393,6 +394,7 @@ function widgetLabel(id) {
     clock:    () => t('dashboard.clock'),
     metrics:  () => t('dashboard.metrics'),
     countdown: () => t('dashboard.countdownTitle'),
+    dinner:   () => DINNER_WIDGET_LABEL, // fork: meal sprints
   };
   return (map[id] ?? (() => id))();
 }
@@ -2320,6 +2322,8 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false, 
     shopping: () => renderShoppingLists(data.shoppingLists ?? []),
     weather: () => (weather ? renderWeatherWidget(weather) : ''),
     clock: () => renderClockWidget(),
+    // fork: meal sprints - fills itself after render, see hydrateDinnerWidgets below
+    dinner: () => renderDinnerWidget(widgetHeader('dinner', DINNER_WIDGET_LABEL, null, '/sprint', 'Sprint')),
     // Die Kachelreihe braucht als einziges Widget zu wissen, wer sonst noch
     // dasteht - sie ist die einzige, die fremde Zahlen zeigt. Gerechnet aus
     // DERSELBEN Bedingung, nach der die Kacheln gleich gefiltert werden, damit
@@ -3811,6 +3815,7 @@ export async function render(container, { user }) {
       ${renderDashboardLayout(cfg, data, weather, currency, { editing: isCustomizing, visibleMealTypes, glanceHidden: !glanceVisible })}
     `);
     wireLinks(container, rerender, { editing: isCustomizing });
+    hydrateDinnerWidgets(container); // fork: meal sprints
     // Retry einer isolierten Widget-Fehlerkachel: da /dashboard aggregiert lädt,
     // ist „erneut versuchen" ein voller Neuaufbau (wie der Page-Level-Retry).
     container.querySelectorAll('[data-widget-retry]').forEach((btn) =>

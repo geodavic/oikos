@@ -8,6 +8,8 @@ import { t, formatDate, formatDateInput, parseDateInput, isDateInputValid } from
 import { esc } from '/utils/html.js';
 import { openModal as openSharedModal, closeModal as closeSharedModal, advancedSection, wireBlurValidation, reportFieldError } from '/components/modal.js';
 import { DEFAULT_CATEGORY_NAME } from '/utils/shopping-categories.js';
+import { linkify } from '/utils/linkify.js';
+import { wireIngredientSuggestions } from '/utils/ingredient-suggest.js';
 import { renderKitchenTabsBar } from '/utils/kitchen-tabs.js';
 import { resolveShoppingTarget, announceTransfer } from '/utils/kitchen-transfer.js';
 import { popoverMenuHtml, installPopoverMenus } from '/utils/popover-menu.js';
@@ -658,7 +660,7 @@ function renderRecipeList() {
       if (recipe.notes) {
         const notes = document.createElement('p');
         notes.className = 'recipe-detail__notes';
-        notes.textContent = recipe.notes;
+        notes.append(linkify(recipe.notes)); // fork: clickable links in notes
         detail.appendChild(notes);
       }
 
@@ -805,6 +807,7 @@ function openRecipeModal(mode, recipe = null) {
       panel.querySelector('#recipe-save')?.addEventListener('click', () => saveRecipe(panel, mode, recipe));
       // Pflichtfelder melden sich beim Verlassen inline (geteiltes Muster).
       wireBlurValidation(panel);
+      wireIngredientSuggestions(panel, state.recipes); // fork: consistent ingredient names
 
       if (window.lucide) window.lucide.createIcons({ el: panel });
     },

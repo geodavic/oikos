@@ -28,7 +28,8 @@ const { KITCHEN_ROUTES, KITCHEN_STORAGE_KEY, getLastKitchenRoute, isKitchenRoute
 
 test('KITCHEN_ROUTES enthält alle vier Sub-Routen in Kreislauf-Reihenfolge', () => {
   // planen → kochen → einkaufen → lagern (#596)
-  assert.deepEqual(KITCHEN_ROUTES, ['/meals', '/recipes', '/shopping', '/pantry']);
+  // fork: '/sprint' (meal sprints, MENU.md) leads the cycle
+  assert.deepEqual(KITCHEN_ROUTES, ['/sprint', '/meals', '/recipes', '/shopping', '/pantry']);
 });
 
 test('KITCHEN_ROUTES ist eingefroren (kanonische Kitchen-Routen)', () => {
@@ -39,9 +40,9 @@ test('KITCHEN_STORAGE_KEY ist korrekt', () => {
   assert.equal(KITCHEN_STORAGE_KEY, 'yuvomi-kitchen-tab');
 });
 
-test('getLastKitchenRoute: Standardwert /meals wenn kein Storage-Eintrag', () => {
+test('getLastKitchenRoute: Standardwert /sprint wenn kein Storage-Eintrag', () => {
   global.sessionStorage._d = {};
-  assert.equal(getLastKitchenRoute(), '/meals');
+  assert.equal(getLastKitchenRoute(), '/sprint');
 });
 
 test('getLastKitchenRoute: gibt gespeicherte Route zurück', () => {
@@ -51,7 +52,7 @@ test('getLastKitchenRoute: gibt gespeicherte Route zurück', () => {
 
 test('getLastKitchenRoute: ignoriert ungültige gespeicherte Route', () => {
   global.sessionStorage._d = { 'yuvomi-kitchen-tab': '/admin' };
-  assert.equal(getLastKitchenRoute(), '/meals');
+  assert.equal(getLastKitchenRoute(), '/sprint');
 });
 
 test('isKitchenRoute: erkennt Kitchen-Routen', () => {

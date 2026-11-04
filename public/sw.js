@@ -77,6 +77,8 @@ const APP_SHELL = [
   '/styles/settings.css',
   '/styles/recipes.css',
   '/styles/pantry.css',
+  '/styles/sprint.css', // fork: meal sprints
+  '/styles/dinner-widget.css', // fork: meal sprints
   '/styles/inventory.css',
   '/styles/detail-view.css',
   '/styles/screensaver.css',
@@ -104,6 +106,7 @@ const APP_SHELL = [
   '/utils/dashboard-layout-hint.js',
   '/utils/dashboard-widgets.js',
   '/utils/date.js',
+  '/utils/dinner-widget.js', // fork: meal sprints
   '/utils/document-preview.js',
   '/utils/empty-state.js',
   '/utils/fab.js',
@@ -118,9 +121,11 @@ const APP_SHELL = [
   '/utils/household.js',
   '/utils/html.js',
   '/utils/ingredient-row.js',
+  '/utils/ingredient-suggest.js', // fork: meal sprints
   '/utils/inventory-warranty.js',
   '/utils/kitchen-tabs.js',
   '/utils/kitchen-transfer.js',
+  '/utils/linkify.js', // fork: meal sprints
   '/utils/mentions.js',
   '/utils/metric-card.js',
   '/utils/money.js',
@@ -209,6 +214,7 @@ const PAGE_MODULES = [
   '/pages/login.js',
   '/pages/recipes.js',
   '/pages/pantry.js',
+  '/pages/sprint.js', // fork: meal sprints
   '/pages/inventory.js',
   '/pages/budget-plans.js',
   '/pages/budget-stats.js',

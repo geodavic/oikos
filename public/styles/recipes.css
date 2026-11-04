@@ -311,6 +311,13 @@
   white-space: pre-wrap;
 }
 
+/* fork: links in notes are clickable (utils/linkify.js) */
+.recipe-detail__notes a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
 /* Die beiden Kreislauf-Ausgänge, beschriftet. Umbruchfähig, weil bei 320px drei
  * beschriftete Buttons nicht in eine Zeile passen - und ein Label, das umbricht,
  * ist besser als ein Glyph, den man erraten muss. */

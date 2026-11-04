@@ -5,7 +5,7 @@ import { MODULE_ICON, moduleIconEl } from '/nav-icons.js';
 import { toLocalDateKey } from '/utils/date.js';
 
 // Reihenfolge = Küchen-Kreislauf: planen → kochen → einkaufen → lagern.
-export const KITCHEN_ROUTES = Object.freeze(['/meals', '/recipes', '/shopping', '/pantry']);
+export const KITCHEN_ROUTES = Object.freeze(['/sprint', '/meals', '/recipes', '/shopping', '/pantry']); // fork: '/sprint' (MENU.md)
 export const KITCHEN_STORAGE_KEY = 'yuvomi-kitchen-tab';
 
 // Modul-Namen der Gruppe, aus den Routen abgeleitet (`route.slice(1)`) - dieselbe
@@ -15,11 +15,13 @@ export const KITCHEN_STORAGE_KEY = 'yuvomi-kitchen-tab';
 export const KITCHEN_MODULES = Object.freeze(KITCHEN_ROUTES.map((route) => route.slice(1)));
 
 const TABS = () => [
+  // fork: meal sprints (MENU.md). Fixed English label, so the 24 locale files stay untouched.
+  { route: '/sprint',   label: 'Sprint',          icon: 'calendar-range', module: 'recipes' },
   { route: '/meals',    labelKey: 'nav.meals',    icon: 'utensils'      },
   { route: '/recipes',  labelKey: 'nav.recipes',  icon: 'book-text'     },
   { route: '/shopping', labelKey: 'nav.shopping', icon: 'shopping-cart' },
   { route: '/pantry',   labelKey: 'nav.pantry',   icon: 'archive'       },
-].filter(({ route }) => !window.yuvomi?.isModuleDisabled(route.slice(1)));
+].filter(({ route, module }) => !window.yuvomi?.isModuleDisabled(module ?? route.slice(1)));
 
 export function getLastKitchenRoute() {
   try {
@@ -28,6 +30,7 @@ export function getLastKitchenRoute() {
       return stored;
     }
   } catch { /* ignore */ }
+  if (!window.yuvomi?.isModuleDisabled('recipes')) return '/sprint'; // fork: Kitchen opens on the sprint
   const first = ['meals', 'recipes', 'shopping', 'pantry'].find((m) => !window.yuvomi?.isModuleDisabled(m));
   return first ? `/${first}` : '/meals';
 }
@@ -153,7 +156,7 @@ export function renderKitchenTabsBar(container, activeRoute) {
     // abschaltbar). Die Leiste wird damit zur Navigation aus echten Links -
     // cmd-Klick öffnet den Vorrat im neuen Tab, wie überall sonst in der Shell.
     semantics: 'nav',
-    tabs: TABS().map(({ route, labelKey, icon }) => ({ id: route, label: t(labelKey), icon })),
+    tabs: TABS().map(({ route, labelKey, label, icon }) => ({ id: route, label: label ?? t(labelKey), icon })),
     activeId: activeRoute,
     storageKey: KITCHEN_STORAGE_KEY,
     extraClass: 'kitchen-tabs-bar',

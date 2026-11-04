@@ -1,0 +1,39 @@
+/*
+ * "Today's Dinner" dashboard widget (fork-only, see MENU.md).
+ * Loaded on demand by utils/dinner-widget.js.
+ */
+
+.dinner-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+.dinner-widget__title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+}
+
+.dinner-widget__title--empty {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.dinner-widget__sides,
+.dinner-widget__next,
+.dinner-widget__loading {
+  font-size: var(--type-secondary);
+  color: var(--color-text-secondary);
+}
+
+.dinner-widget__open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}

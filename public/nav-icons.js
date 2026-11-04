@@ -321,6 +321,7 @@ export const MODULE_ICON = {
   clock:            'clock',
   metrics:          'layout-grid',
   countdown:        'hourglass',
+  dinner:           'utensils', // fork: meal sprints
 };
 
 /**

@@ -1,0 +1,491 @@
+/*
+ * Meal sprint (Kitchen tab, fork-only - see MENU.md).
+ * Built for the portrait touchscreen first: large rows and touch targets.
+ */
+
+.sprint-body {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-12);
+}
+
+/* Toolbar ----------------------------------------------------------------- */
+
+.sprint-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.sprint-toolbar__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sprint-toolbar__heading {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.sprint-toolbar__meta,
+.sprint-muted {
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary);
+}
+
+.sprint-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sprint-toolbar__actions .btn,
+.sprint-days__add .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Day list ---------------------------------------------------------------- */
+
+.sprint-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sprint-day {
+  display: grid;
+  grid-template-columns: auto 56px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 72px;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.sprint-day--today {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.sprint-day--past {
+  opacity: 0.6;
+}
+
+.sprint-day--free {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--color-border);
+}
+
+.sprint-day__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  align-self: stretch;
+  color: var(--color-text-tertiary);
+  cursor: grab;
+  touch-action: none;
+}
+
+.sprint-day__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.sprint-day__weekday {
+  font-size: var(--type-caption);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-secondary);
+}
+
+.sprint-day__day {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.sprint-day__today {
+  margin-top: 2px;
+  font-size: var(--type-micro);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.sprint-day__content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sprint-day__title,
+.sprint-day__free {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sprint-day__title {
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sprint-day__free {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.sprint-day__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-style: normal;
+  font-size: var(--type-secondary);
+  color: var(--color-accent);
+}
+
+.sprint-day__actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.sprint-days__add {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
+/* Sides ------------------------------------------------------------------- */
+
+.sprint-day__sides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.sprint-side {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-fill-well);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption);
+}
+
+.sprint-side__name,
+.sprint-side__remove,
+.sprint-side--add {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sprint-side__name {
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+}
+
+.sprint-side__remove {
+  display: inline-flex;
+  padding: var(--space-1) var(--space-2);
+}
+
+.sprint-side--add {
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+}
+
+/* Perishability dot ------------------------------------------------------- */
+
+.sprint-perish {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--color-border-strong);
+}
+
+.sprint-perish--1 {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.sprint-perish--2 {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* Action sheet ------------------------------------------------------------ */
+
+.sprint-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.sprint-actions__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: none;
+  font: inherit;
+  color: var(--color-text-primary);
+  text-align: start;
+  cursor: pointer;
+}
+
+.sprint-actions__item:last-child {
+  border-bottom: 0;
+}
+
+.sprint-actions__item--danger {
+  color: var(--color-danger);
+}
+
+/* Picker ------------------------------------------------------------------ */
+
+.sprint-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sprint-picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(55vh, 520px);
+  overflow-y: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.sprint-picker__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+}
+
+.sprint-picker__list li:last-child .sprint-picker__row {
+  border-bottom: 0;
+}
+
+.sprint-picker__row input {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.sprint-picker__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.sprint-picker__order {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.sprint-picker__count {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+}
+
+/* Recipe detail ----------------------------------------------------------- */
+
+.sprint-recipe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sprint-recipe__ingredients {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.sprint-recipe__notes {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+
+/* Shopping list ----------------------------------------------------------- */
+
+.sprint-shopping {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sprint-shopping .sprint-muted {
+  margin: 0;
+}
+
+.sprint-shopping__category {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-secondary);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.sprint-shopping__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sprint-shopping__item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-areas:
+    "dot name qty"
+    "dot used used";
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.sprint-perish-toggle {
+  grid-area: dot;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.sprint-perish-toggle .sprint-perish {
+  width: 14px;
+  height: 14px;
+}
+
+.sprint-shopping__name {
+  grid-area: name;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sprint-shopping__qty {
+  grid-area: qty;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sprint-shopping__used {
+  grid-area: used;
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+}
+
+/* History ----------------------------------------------------------------- */
+
+.sprint-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sprint-history__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sprint-history__date {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.sprint-history__titles {
+  font-size: var(--type-secondary);
+  color: var(--color-text-secondary);
+}
+
+.sprint-past__list {
+  margin: 0 0 var(--space-4);
+  padding-inline-start: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sprint-past__day {
+  display: inline-block;
+  min-width: 96px;
+  color: var(--color-text-secondary);
+}
+
+.sprint-past__title {
+  font-weight: 600;
+}
+
+@media (max-width: 639px) {
+  .sprint-day {
+    grid-template-columns: auto 44px 1fr auto;
+    gap: var(--space-2);
+  }
+}
+
+.sprint-recipe__notes a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
